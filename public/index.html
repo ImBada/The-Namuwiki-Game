@@ -46,6 +46,17 @@
           </article>
         </section>
 
+        <section class="path-panel">
+          <div class="panel-heading">
+            <h2>경로</h2>
+            <div class="path-meta">
+              <span id="pathCount">0</span>
+              <strong id="pathGoalTitle">-</strong>
+            </div>
+          </div>
+          <ol id="pathList" class="path-list"></ol>
+        </section>
+
         <section class="content-grid">
           <article class="wiki-stage">
             <header class="wiki-stage-header">
@@ -53,20 +64,19 @@
                 <span>현재 문서</span>
                 <h2 id="articleTitle">라운드를 시작하세요</h2>
               </div>
-              <a id="sourceLink" class="source-link" href="https://namu.wiki/" rel="noreferrer" target="_blank">원문</a>
+              <div class="article-actions">
+                <div class="sticky-goal">
+                  <span>목표</span>
+                  <strong id="stickyGoalTitle">-</strong>
+                </div>
+                <a id="sourceLink" class="source-link" href="https://namu.wiki/" rel="noreferrer" target="_blank">원문</a>
+              </div>
             </header>
             <p id="articleDescription" class="article-summary">새 라운드를 누르면 시작 문서와 목표 문서가 정해집니다.</p>
             <div id="wikiArticle" class="wiki-article">
               <p class="wiki-placeholder">문서를 불러오는 중입니다.</p>
             </div>
           </article>
-        </section>
-
-        <section class="path-panel">
-          <div class="panel-heading">
-            <h2>경로</h2>
-          </div>
-          <ol id="pathList" class="path-list"></ol>
         </section>
 
         <footer class="license-line">

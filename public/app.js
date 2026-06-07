@@ -19,8 +19,11 @@ const els = {
   difficultyLabel: document.querySelector("#difficultyLabel"),
   articleTitle: document.querySelector("#articleTitle"),
   articleDescription: document.querySelector("#articleDescription"),
+  stickyGoalTitle: document.querySelector("#stickyGoalTitle"),
   sourceLink: document.querySelector("#sourceLink"),
   wikiArticle: document.querySelector("#wikiArticle"),
+  pathCount: document.querySelector("#pathCount"),
+  pathGoalTitle: document.querySelector("#pathGoalTitle"),
   pathList: document.querySelector("#pathList")
 };
 
@@ -103,6 +106,8 @@ function render() {
 
   els.startTitle.textContent = round?.startTitle || "-";
   els.goalTitle.textContent = round?.goalTitle || "-";
+  els.stickyGoalTitle.textContent = round?.goalTitle || "-";
+  els.pathGoalTitle.textContent = round?.goalTitle ? `목표 ${round.goalTitle}` : "-";
   els.clickCount.textContent = String(round?.clickCount || 0);
   els.difficultyLabel.textContent = round?.difficulty?.label || "-";
   els.articleTitle.textContent = article?.title || "라운드를 시작하세요";
@@ -121,10 +126,12 @@ function render() {
 
 function renderPath() {
   const path = state.round?.path || [];
+  els.pathCount.textContent = String(path.length);
   els.pathList.replaceChildren(
     ...path.map((title, index) => {
       const item = document.createElement("li");
       item.textContent = title;
+      item.title = title;
       if (index === path.length - 1) {
         item.setAttribute("aria-current", "page");
       }

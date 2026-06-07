@@ -242,9 +242,8 @@ a:focus-visible {
 }
 
 .wiki-stage-header {
-  position: sticky;
+  position: static;
   z-index: 4;
-  top: 67px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -253,6 +252,10 @@ a:focus-visible {
   background: rgba(255, 255, 255, 0.97);
   padding: 16px 20px;
   backdrop-filter: blur(10px);
+}
+
+.wiki-stage-header > div:first-child {
+  min-width: 0;
 }
 
 .wiki-stage-header span {
@@ -267,6 +270,37 @@ a:focus-visible {
   overflow-wrap: anywhere;
   font-size: 26px;
   line-height: 1.15;
+}
+
+.article-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.sticky-goal {
+  display: grid;
+  min-width: 160px;
+  max-width: 280px;
+  gap: 4px;
+  border: 1px solid rgba(182, 69, 90, 0.24);
+  border-radius: var(--radius);
+  background: rgba(255, 248, 250, 0.92);
+  padding: 7px 10px;
+}
+
+.sticky-goal span {
+  color: var(--rose);
+}
+
+.sticky-goal strong {
+  overflow: hidden;
+  color: #7d2434;
+  font-size: 15px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .article-summary {
@@ -421,13 +455,22 @@ a:focus-visible {
 }
 
 .wiki-article .game-wiki-link {
-  border-bottom: 1px solid rgba(11, 111, 189, 0.28);
+  border-radius: 3px;
+  border-bottom: 1px solid rgba(11, 111, 189, 0.34);
   font-weight: 600;
+  transition:
+    background-color 0.08s ease,
+    border-color 0.08s ease,
+    color 0.08s ease;
 }
 
-.wiki-article a:hover,
-.game-wiki-link:hover {
+.wiki-article a:hover {
   text-decoration: underline;
+}
+
+.game-wiki-link:hover {
+  background: rgba(11, 111, 189, 0.08);
+  border-bottom-color: rgba(11, 111, 189, 0.64);
 }
 
 .wiki-article .game-wiki-link.is-visited {
@@ -440,6 +483,7 @@ a:focus-visible {
 
 body.is-loading .game-wiki-link {
   cursor: progress;
+  pointer-events: none;
 }
 
 .wiki-link-disabled {
@@ -663,19 +707,45 @@ body.is-loading .game-wiki-link {
 }
 
 .path-panel {
+  position: sticky;
+  z-index: 6;
+  top: 82px;
+  max-height: 120px;
+  overflow: auto;
   padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
 }
 
 .path-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 18px;
   margin: 12px 0 0;
   padding: 0;
   list-style: none;
 }
 
+.path-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.path-meta strong {
+  max-width: min(360px, 48vw);
+  overflow: hidden;
+  color: #7d2434;
+  font-size: 13px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .path-list li {
+  position: relative;
   max-width: 240px;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -688,8 +758,19 @@ body.is-loading .game-wiki-link {
   font-size: 13px;
 }
 
+.path-list li:not(:last-child)::after {
+  position: absolute;
+  top: 50%;
+  right: -15px;
+  color: var(--muted);
+  content: "›";
+  font-weight: 900;
+  transform: translateY(-50%);
+}
+
 .path-list li[aria-current="page"] {
   border-color: rgba(0, 143, 131, 0.42);
+  background: rgba(0, 143, 131, 0.08);
   color: var(--ink);
   font-weight: 750;
 }
@@ -724,6 +805,7 @@ body.is-loading .game-wiki-link {
   }
 
   .topbar,
+  .path-panel,
   .wiki-stage-header {
     position: static;
   }
