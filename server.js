@@ -1,0 +1,454 @@
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { extname, join, normalize } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  encodeTitle,
+  extractArticle,
+  makeArticleUrl,
+  isPlayableArticleTitle,
+  normalizeTitle
+} from "./src/namu.js";
+
+const PORT = Number.parseInt(process.env.PORT || "3000", 10);
+const HOST = process.env.HOST || "127.0.0.1";
+const ROOT = fileURLToPath(new URL(".", import.meta.url));
+const PUBLIC_DIR = join(ROOT, "public");
+const DOCUMENT_TTL_MS = 1000 * 60 * 60 * 6;
+const USER_AGENT =
+  "The-Namuwiki-Game-MVP/0.1 (non-commercial educational prototype)";
+
+const documentCache = new Map();
+const rounds = new Map();
+
+const mimeTypes = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml"
+};
+
+const curatedFallbackTitles = [
+  "대한민국",
+  "서울특별시",
+  "인터넷",
+  "게임",
+  "컴퓨터",
+  "한글",
+  "위키",
+  "과학",
+  "역사",
+  "음악",
+  "영화",
+  "축구",
+  "스타크래프트",
+  "부산광역시",
+  "일본",
+  "미국",
+  "유럽",
+  "철도",
+  "자동차",
+  "스마트폰",
+  "프로그래밍"
+];
+
+const targetFallbackTitles = [
+  "대한민국",
+  "서울특별시",
+  "인터넷",
+  "게임",
+  "컴퓨터",
+  "한글",
+  "영화",
+  "음악",
+  "축구",
+  "부산광역시",
+  "일본",
+  "미국",
+  "철도",
+  "자동차"
+];
+
+const randomPickAttempts = 6;
+const sensitiveTerms = [
+  "강간",
+  "성폭행",
+  "성추행",
+  "능욕",
+  "자살",
+  "살인",
+  "고문",
+  "학살",
+  "아동학대"
+];
+
+export const app = createServer(async (request, response) => {
+  try {
+    const url = new URL(request.url || "/", `http://${request.headers.host}`);
+
+    if (url.pathname === "/api/health") {
+      return sendJson(response, { ok: true });
+    }
+
+    if (url.pathname === "/api/round" && request.method === "GET") {
+      return sendJson(response, await createRound({
+        startTitle: url.searchParams.get("start"),
+        goalTitle: url.searchParams.get("goal")
+      }));
+    }
+
+    if (url.pathname === "/api/click" && request.method === "POST") {
+      const body = await readJsonBody(request);
+      return sendJson(response, await handleClick(body));
+    }
+
+    return serveStatic(url.pathname, response);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    sendJson(response, { error: error.message || "Server error" }, status);
+  }
+});
+
+if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
+  app.listen(PORT, HOST, () => {
+    console.log(`The Namuwiki Game is running at http://${HOST}:${PORT}`);
+  });
+}
+
+async function createRound(options = {}) {
+  const requestedStartTitle = normalizeTitle(options.startTitle);
+  const requestedGoalTitle = normalizeTitle(options.goalTitle);
+  const startArticle = requestedStartTitle
+    ? await getArticle(requestedStartTitle)
+    : await pickArticleCandidate({
+        role: "start",
+        exceptTitles: [],
+        minLinks: 12
+      });
+  let goalArticle = requestedGoalTitle
+    ? await getArticle(requestedGoalTitle)
+    : await pickArticleCandidate({
+        role: "goal",
+        exceptTitles: [startArticle.title],
+        minLinks: 4
+      });
+
+  if (normalizeTitle(goalArticle.title) === normalizeTitle(startArticle.title)) {
+    goalArticle = await getArticle(pickCuratedTitle(startArticle.title, targetFallbackTitles));
+  }
+
+  const difficulty = estimateDifficulty(startArticle, goalArticle);
+
+  const round = {
+    id: crypto.randomUUID(),
+    startTitle: startArticle.title,
+    goalTitle: goalArticle.title,
+    currentTitle: startArticle.title,
+    path: [startArticle.title],
+    startedAt: Date.now(),
+    clickCount: 0,
+    difficulty
+  };
+
+  rounds.set(round.id, round);
+
+  return {
+    round: publicRound(round),
+    article: startArticle,
+    goal: compactArticle(goalArticle)
+  };
+}
+
+async function handleClick(body) {
+  const round = rounds.get(String(body?.roundId || ""));
+  if (!round) throw httpError(404, "Round not found");
+
+  const nextTitle = normalizeTitle(body?.title);
+  const currentArticle = await getArticle(round.currentTitle);
+  const legalMove = currentArticle.links.some(
+    (link) => normalizeTitle(link.title) === nextTitle
+  );
+
+  if (!legalMove) {
+    throw httpError(400, "That article is not linked from the current page");
+  }
+
+  const nextArticle = await getArticle(nextTitle);
+  round.currentTitle = nextArticle.title;
+  round.path.push(nextArticle.title);
+  round.clickCount += 1;
+
+  const completed =
+    normalizeTitle(nextArticle.title) === normalizeTitle(round.goalTitle);
+
+  return {
+    round: publicRound(round),
+    article: nextArticle,
+    completed
+  };
+}
+
+async function pickRandomTitle() {
+  try {
+    const response = await fetch("https://namu.wiki/random", {
+      headers: { "User-Agent": USER_AGENT }
+    });
+    const article = extractArticle(await response.text(), "");
+    if (article.title && article.links.length > 0) return article.title;
+  } catch {
+    // Fall through to curated fallback.
+  }
+
+  return pickCuratedTitle();
+}
+
+async function pickArticleCandidate({ role, exceptTitles, minLinks }) {
+  const acceptedFallbacks = role === "goal" ? targetFallbackTitles : curatedFallbackTitles;
+  const candidates = [];
+
+  for (let attempt = 0; attempt < randomPickAttempts; attempt += 1) {
+    try {
+      const title = await pickRandomTitle();
+      if (exceptTitles.some((exceptTitle) => sameTitle(title, exceptTitle))) continue;
+
+      const article = await getArticle(title);
+      const quality = scoreArticleQuality(article, { minLinks, role });
+      if (quality.accepted) return article;
+      candidates.push({ article, quality });
+    } catch {
+      // Try another candidate, then fall back to curated titles.
+    }
+  }
+
+  const bestCandidate = candidates
+    .filter(({ article }) => !exceptTitles.some((exceptTitle) => sameTitle(article.title, exceptTitle)))
+    .sort((a, b) => b.quality.score - a.quality.score)[0];
+
+  if (bestCandidate?.quality.accepted) return bestCandidate.article;
+
+  for (const fallbackTitle of shuffled(acceptedFallbacks)) {
+    if (exceptTitles.some((exceptTitle) => sameTitle(fallbackTitle, exceptTitle))) continue;
+    const article = await getArticle(fallbackTitle);
+    const quality = scoreArticleQuality(article, {
+      minLinks: Math.min(minLinks, 6),
+      role
+    });
+    if (quality.score >= 50) return article;
+  }
+
+  return getArticle(pickCuratedTitle(exceptTitles[0], acceptedFallbacks));
+}
+
+function pickCuratedTitle(exceptTitle = "", pool = curatedFallbackTitles) {
+  const candidates = pool.filter(
+    (title) => normalizeTitle(title) !== normalizeTitle(exceptTitle)
+  );
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+async function getArticle(title) {
+  const key = normalizeTitle(title);
+  const cached = documentCache.get(key);
+
+  if (cached && Date.now() - cached.fetchedAt < DOCUMENT_TTL_MS) {
+    return cached.article;
+  }
+
+  const response = await fetch(makeArticleUrl(key), {
+    headers: { "User-Agent": USER_AGENT }
+  });
+
+  if (!response.ok) {
+    throw httpError(response.status, `Could not fetch article: ${key}`);
+  }
+
+  const article = extractArticle(await response.text(), key);
+  documentCache.set(normalizeTitle(article.title), {
+    fetchedAt: Date.now(),
+    article
+  });
+  documentCache.set(key, {
+    fetchedAt: Date.now(),
+    article
+  });
+
+  return article;
+}
+
+function publicRound(round) {
+  return {
+    id: round.id,
+    startTitle: round.startTitle,
+    goalTitle: round.goalTitle,
+    currentTitle: round.currentTitle,
+    path: round.path,
+    clickCount: round.clickCount,
+    startedAt: round.startedAt,
+    difficulty: round.difficulty
+  };
+}
+
+function compactArticle(article) {
+  return {
+    title: article.title,
+    description: article.description,
+    imageUrl: article.imageUrl,
+    canonicalUrl: article.canonicalUrl,
+    linkCount: article.links.length,
+    quality: scoreArticleQuality(article)
+  };
+}
+
+export function scoreArticleQuality(article, options = {}) {
+  const minLinks = options.minLinks ?? 6;
+  const role = options.role || "start";
+  const title = normalizeTitle(article?.title);
+  const description = normalizeTitle(article?.description);
+  const linkCount = article?.links?.length || 0;
+  let score = 100;
+  const reasons = [];
+
+  if (!isPlayableArticleTitle(title)) {
+    score -= 60;
+    reasons.push("namespace");
+  }
+
+  if (title.length < 2 || title.length > 35) {
+    score -= 15;
+    reasons.push("title-length");
+  }
+
+  if (/[/:]하위 문서|\/등장인물|\/에피소드|\/역사|\/연재 작품|\/목록|\/에피소드 목록/.test(title)) {
+    score -= 18;
+    reasons.push("subpage");
+  }
+
+  if (role === "goal" && title.includes("/")) {
+    score -= 28;
+    reasons.push("goal-subpage");
+  }
+
+  if (role === "goal" && /일람|목록|등장인물|에피소드/.test(title)) {
+    score -= 18;
+    reasons.push("goal-index-like");
+  }
+
+  if (linkCount < minLinks) {
+    score -= Math.min(45, (minLinks - linkCount) * 7);
+    reasons.push("few-links");
+  }
+
+  if (linkCount > 450) {
+    score -= 10;
+    reasons.push("too-many-links");
+  }
+
+  if (description.length < 18) {
+    score -= 12;
+    reasons.push("short-description");
+  }
+
+  const textForSafety = `${title} ${description} ${(article?.links || [])
+    .map((link) => link.title)
+    .join(" ")}`;
+  if (sensitiveTerms.some((term) => textForSafety.includes(term))) {
+    score -= 35;
+    reasons.push("sensitive-topic");
+  }
+
+  return {
+    accepted:
+      score >= 70 &&
+      linkCount >= minLinks &&
+      !(role === "goal" && title.includes("/")),
+    score: Math.max(0, Math.min(100, score)),
+    linkCount,
+    reasons
+  };
+}
+
+export function estimateDifficulty(startArticle, goalArticle) {
+  const startLinks = startArticle.links.length;
+  const goalLinks = goalArticle.links.length;
+  const sharedLinks = countSharedLinks(startArticle, goalArticle);
+  const sameToken = titleTokens(startArticle.title).some((token) =>
+    titleTokens(goalArticle.title).includes(token)
+  );
+
+  let score = 50;
+  if (startLinks < 25) score += 15;
+  if (startLinks > 100) score -= 10;
+  if (goalLinks < 10) score += 12;
+  if (sharedLinks > 0) score -= Math.min(28, sharedLinks * 12);
+  if (sameToken) score -= 12;
+
+  const boundedScore = Math.max(1, Math.min(99, score));
+  const label = boundedScore < 38 ? "쉬움" : boundedScore < 65 ? "보통" : "어려움";
+
+  return {
+    label,
+    score: boundedScore,
+    startLinkCount: startLinks,
+    goalLinkCount: goalLinks,
+    sharedLinkCount: sharedLinks
+  };
+}
+
+function countSharedLinks(a, b) {
+  const bTitles = new Set(b.links.map((link) => normalizeTitle(link.title)));
+  return a.links.filter((link) => bTitles.has(normalizeTitle(link.title))).length;
+}
+
+function titleTokens(title) {
+  return normalizeTitle(title)
+    .split(/[()\s/·,:-]+/)
+    .filter((token) => token.length >= 2);
+}
+
+function sameTitle(a, b) {
+  return normalizeTitle(a) === normalizeTitle(b);
+}
+
+function shuffled(values) {
+  return [...values].sort(() => Math.random() - 0.5);
+}
+
+async function serveStatic(pathname, response) {
+  const safePath = pathname === "/" ? "/index.html" : pathname;
+  const filePath = normalize(join(PUBLIC_DIR, safePath));
+
+  if (!filePath.startsWith(PUBLIC_DIR)) {
+    throw httpError(403, "Forbidden");
+  }
+
+  try {
+    const data = await readFile(filePath);
+    response.writeHead(200, {
+      "Content-Type": mimeTypes[extname(filePath)] || "application/octet-stream"
+    });
+    response.end(data);
+  } catch {
+    const fallback = await readFile(join(PUBLIC_DIR, "index.html"));
+    response.writeHead(200, { "Content-Type": mimeTypes[".html"] });
+    response.end(fallback);
+  }
+}
+
+async function readJsonBody(request) {
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  if (chunks.length === 0) return {};
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+function sendJson(response, payload, status = 200) {
+  response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  response.end(JSON.stringify(payload));
+}
+
+function httpError(statusCode, message) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
