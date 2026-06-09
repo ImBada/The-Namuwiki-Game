@@ -113,6 +113,7 @@ export async function handleRequest(request, response) {
 }
 
 export const app = createServer(handleRequest);
+export default app;
 
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
   app.listen(PORT, HOST, () => {
