@@ -2,15 +2,21 @@ const state = {
   round: null,
   goal: null,
   article: null,
+  hasStarted: false,
   isMoving: false,
   tick: null
 };
 
 const els = {
+  homeScreen: document.querySelector("#homeScreen"),
+  startGameButton: document.querySelector("#startGameButton"),
+  gameBoard: document.querySelector(".game-board"),
   newRoundButton: document.querySelector("#newRoundButton"),
   dialogNewRoundButton: document.querySelector("#dialogNewRoundButton"),
   resultDialog: document.querySelector("#resultDialog"),
+  resultTitle: document.querySelector("#resultTitle"),
   resultSummary: document.querySelector("#resultSummary"),
+  resultPathList: document.querySelector("#resultPathList"),
   roundStatus: document.querySelector("#roundStatus"),
   startTitle: document.querySelector("#startTitle"),
   goalTitle: document.querySelector("#goalTitle"),
@@ -27,6 +33,7 @@ const els = {
   pathList: document.querySelector("#pathList")
 };
 
+els.startGameButton.addEventListener("click", startRound);
 els.newRoundButton.addEventListener("click", startRound);
 els.dialogNewRoundButton.addEventListener("click", () => {
   els.resultDialog.close();
@@ -40,9 +47,13 @@ els.wikiArticle.addEventListener("click", (event) => {
   moveTo(link.dataset.gameTitle);
 });
 
-startRound();
+render();
 
 async function startRound() {
+  state.hasStarted = true;
+  document.body.classList.remove("is-home");
+  document.body.classList.add("is-game");
+  render();
   setLoading(true);
   try {
     const data = await fetchJson(roundRequestUrl());
@@ -88,7 +99,7 @@ async function moveTo(title) {
     if (data.completed) {
       state.completed = true;
       stopTimer();
-      els.resultSummary.textContent = `${formatElapsed()} · ${state.round.clickCount} 클릭`;
+      renderResult();
       els.resultDialog.showModal();
     }
   } catch (error) {
@@ -104,6 +115,8 @@ function render() {
   const round = state.round;
   const article = state.article;
 
+  els.homeScreen.hidden = state.hasStarted;
+  els.gameBoard.hidden = !state.hasStarted;
   els.startTitle.textContent = round?.startTitle || "-";
   els.goalTitle.textContent = round?.goalTitle || "-";
   els.stickyGoalTitle.textContent = round?.goalTitle || "-";
@@ -135,6 +148,20 @@ function renderPath() {
       if (index === path.length - 1) {
         item.setAttribute("aria-current", "page");
       }
+      return item;
+    })
+  );
+}
+
+function renderResult() {
+  const path = state.round?.path || [];
+  els.resultTitle.textContent = state.round?.goalTitle || "도착";
+  els.resultSummary.textContent = `${formatElapsed()} · ${state.round?.clickCount || 0} 클릭 · ${path.length} 문서`;
+  els.resultPathList.replaceChildren(
+    ...path.map((title) => {
+      const item = document.createElement("li");
+      item.textContent = title;
+      item.title = title;
       return item;
     })
   );
@@ -271,6 +298,7 @@ function formatElapsed() {
 
 function setLoading(isLoading) {
   document.body.classList.toggle("is-loading", isLoading);
+  els.startGameButton.disabled = isLoading;
   els.newRoundButton.disabled = isLoading;
   els.dialogNewRoundButton.disabled = isLoading;
   syncArticleLinkState();

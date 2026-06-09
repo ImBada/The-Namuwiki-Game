@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -17,9 +18,10 @@ const PUBLIC_DIR = join(ROOT, "public");
 const DOCUMENT_TTL_MS = 1000 * 60 * 60 * 6;
 const USER_AGENT =
   "The-Namuwiki-Game-MVP/0.1 (non-commercial educational prototype)";
+const ROUND_SECRET =
+  process.env.ROUND_SECRET || "the-namuwiki-game-local-round-secret";
 
 const documentCache = new Map();
-const rounds = new Map();
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -83,7 +85,7 @@ const sensitiveTerms = [
   "아동학대"
 ];
 
-export const app = createServer(async (request, response) => {
+export async function handleRequest(request, response) {
   try {
     const url = new URL(request.url || "/", `http://${request.headers.host}`);
 
@@ -108,7 +110,9 @@ export const app = createServer(async (request, response) => {
     const status = error.statusCode || 500;
     sendJson(response, { error: error.message || "Server error" }, status);
   }
-});
+}
+
+export const app = createServer(handleRequest);
 
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
   app.listen(PORT, HOST, () => {
@@ -141,7 +145,6 @@ async function createRound(options = {}) {
   const difficulty = estimateDifficulty(startArticle, goalArticle);
 
   const round = {
-    id: crypto.randomUUID(),
     startTitle: startArticle.title,
     goalTitle: goalArticle.title,
     currentTitle: startArticle.title,
@@ -151,8 +154,6 @@ async function createRound(options = {}) {
     difficulty
   };
 
-  rounds.set(round.id, round);
-
   return {
     round: publicRound(round),
     article: startArticle,
@@ -161,7 +162,7 @@ async function createRound(options = {}) {
 }
 
 async function handleClick(body) {
-  const round = rounds.get(String(body?.roundId || ""));
+  const round = decodeRoundToken(String(body?.roundId || ""));
   if (!round) throw httpError(404, "Round not found");
 
   const nextTitle = normalizeTitle(body?.title);
@@ -278,7 +279,7 @@ async function getArticle(title) {
 
 function publicRound(round) {
   return {
-    id: round.id,
+    id: encodeRoundToken(round),
     startTitle: round.startTitle,
     goalTitle: round.goalTitle,
     currentTitle: round.currentTitle,
@@ -287,6 +288,52 @@ function publicRound(round) {
     startedAt: round.startedAt,
     difficulty: round.difficulty
   };
+}
+
+function encodeRoundToken(round) {
+  const payload = Buffer.from(JSON.stringify({
+    startTitle: round.startTitle,
+    goalTitle: round.goalTitle,
+    currentTitle: round.currentTitle,
+    path: round.path,
+    clickCount: round.clickCount,
+    startedAt: round.startedAt,
+    difficulty: round.difficulty
+  })).toString("base64url");
+  return `${payload}.${signRoundPayload(payload)}`;
+}
+
+function decodeRoundToken(token) {
+  const [payload, signature] = String(token || "").split(".");
+  if (!payload || !signature) return null;
+  const expected = signRoundPayload(payload);
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (
+    actualBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(actualBuffer, expectedBuffer)
+  ) {
+    return null;
+  }
+
+  try {
+    const round = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (
+      !round.startTitle ||
+      !round.goalTitle ||
+      !round.currentTitle ||
+      !Array.isArray(round.path)
+    ) {
+      return null;
+    }
+    return round;
+  } catch {
+    return null;
+  }
+}
+
+function signRoundPayload(payload) {
+  return createHmac("sha256", ROUND_SECRET).update(payload).digest("base64url");
 }
 
 function compactArticle(article) {

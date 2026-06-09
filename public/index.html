@@ -6,8 +6,65 @@
     <title>나무위키 게임</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
+  <body class="is-home">
     <main class="app-shell">
+      <section id="homeScreen" class="home-screen" aria-labelledby="homeTitle">
+        <header class="topbar home-topbar">
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true">N</span>
+            <div>
+              <h1>나무위키 게임</h1>
+              <p>링크만 타고 목표 문서까지</p>
+            </div>
+          </div>
+        </header>
+
+        <section class="home-board">
+          <div class="home-copy">
+            <span class="home-kicker">NAMUWIKI LINK GAME</span>
+            <h2 id="homeTitle">문서에서 문서로</h2>
+            <p id="homeDescription">시작 문서와 목표 문서를 받은 뒤, 실제 문서 본문 링크만 눌러 길을 찾습니다.</p>
+            <div class="home-actions">
+              <button id="startGameButton" class="primary-button home-start-button" type="button">게임 시작</button>
+            </div>
+          </div>
+
+          <div class="home-preview" aria-hidden="true">
+            <div class="preview-strip">
+              <div>
+                <span>시작</span>
+                <strong>대한민국</strong>
+              </div>
+              <div>
+                <span>목표</span>
+                <strong>일본</strong>
+              </div>
+              <div>
+                <span>클릭</span>
+                <strong>0</strong>
+              </div>
+            </div>
+            <div class="preview-article">
+              <div class="preview-title-row">
+                <span class="preview-doc-icon">N</span>
+                <strong>대한민국</strong>
+              </div>
+              <div class="preview-lines">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <div class="preview-link-row">
+                <span>역사</span>
+                <span>문화</span>
+                <span>정치</span>
+                <span>일본</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
       <section class="game-board" aria-live="polite">
         <header class="topbar">
           <div class="brand">
@@ -86,9 +143,13 @@
       </section>
 
       <dialog id="resultDialog" class="result-dialog">
-        <h2>도착</h2>
+        <span class="result-kicker">목표 도착</span>
+        <h2 id="resultTitle">도착</h2>
         <p id="resultSummary"></p>
-        <button id="dialogNewRoundButton" class="primary-button" type="button">다음 라운드</button>
+        <ol id="resultPathList" class="result-path-list"></ol>
+        <div class="result-actions">
+          <button id="dialogNewRoundButton" class="primary-button" type="button">다음 라운드</button>
+        </div>
       </dialog>
     </main>
     <script type="module" src="/app.js"></script>

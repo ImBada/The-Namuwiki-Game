@@ -140,6 +140,9 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
     })
     .replace(/<\/a>/gi, "</a>")
     .replace(/<span class="wiki-link-disabled"([^>]*)>([\s\S]*?)<\/a>/gi, "<span class=\"wiki-link-disabled\"$1>$2</span>")
+    .replace(/<a\b([^>]*?)href=(["'])(?!#)([^"']+)\2([^>]*)>([\s\S]*?)<\/a>/gi, (match, before, quote, href, after, content) => {
+      return `<span class="wiki-link-disabled wiki-link-external-disabled" data-disabled-href="${escapeAttribute(href)}">${content}</span>`;
+    })
     .replace(/\s(src|href)=["']\/\/([^"']+)["']/gi, ' $1="https://$2"')
     .replace(/\ssrc=["']\/([^"']+)["']/gi, ' src="https://namu.wiki/$1"')
     .replace(/\shref=["']\/([^"']+)["']/gi, ' href="https://namu.wiki/$1"')

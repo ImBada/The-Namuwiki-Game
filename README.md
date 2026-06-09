@@ -25,6 +25,27 @@ Open `http://localhost:3000`.
 npm test
 ```
 
+## Deploy to Vercel
+
+The app is prepared for Vercel with:
+
+- Static files served from `public/`.
+- API requests routed through `api/index.js`.
+- `vercel.json` rewrites for `/api/*` and the single-page app fallback.
+- Signed round-state tokens, so `/api/click` does not depend on serverless
+  instance memory.
+
+Deploy from the repository root with Vercel's default project settings. No build
+command is required.
+
+Optional environment variable:
+
+- `ROUND_SECRET`: secret used to sign round-state tokens. A local development
+  default is provided, but production deployments should set their own value.
+
+The document cache remains in memory. This is fine for a prototype, but production
+traffic should move cached documents into persistent storage or a managed cache.
+
 ## Notes
 
 NamuWiki pages indicate a CC BY-NC-SA 2.0 KR license. The app keeps attribution visible and should be operated as a non-commercial project unless separate permission is secured.

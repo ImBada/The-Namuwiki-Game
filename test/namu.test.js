@@ -80,6 +80,9 @@ test("sanitizes article HTML and rewrites playable links", () => {
       <script>alert(1)</script>
       <a class="wiki-link-internal" onclick="bad()" href="/w/%EB%8C%80%ED%95%9C%EB%AF%BC%EA%B5%AD">대한민국</a>
       <a href="/w/%ED%8C%8C%EC%9D%BC:%EC%98%88%EC%8B%9C.png">파일</a>
+      <a class="wiki-link-external" href="https://example.com/news">외부</a>
+      <a href="/acl/%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4">ACL</a>
+      <a href="#s-1">목차</a>
       <div class="WU8NJg0C">&nbsp;</div>
       <img src="/img/example.png" onerror="bad()">
     `,
@@ -90,6 +93,12 @@ test("sanitizes article HTML and rewrites playable links", () => {
   assert.match(html, /href="#"/);
   assert.match(html, /data-game-title="대한민국"/);
   assert.match(html, /wiki-link-disabled/);
+  assert.match(html, /wiki-link-external-disabled/);
+  assert.match(html, /data-disabled-href="https:\/\/example\.com\/news"/);
+  assert.match(html, /data-disabled-href="\/acl\/%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4"/);
+  assert.match(html, /href="#s-1"/);
+  assert.doesNotMatch(html, /<a[^>]+href="https:\/\/example\.com\/news"/);
+  assert.doesNotMatch(html, /<a[^>]+href="https:\/\/namu\.wiki\/acl\//);
   assert.match(html, /src="https:\/\/namu\.wiki\/img\/example\.png"/);
   assert.doesNotMatch(html, /WU8NJg0C|&nbsp;<\/div>/);
 });

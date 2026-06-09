@@ -38,6 +38,10 @@ input {
   font: inherit;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 a {
   color: var(--teal-dark);
 }
@@ -60,6 +64,186 @@ a:focus-visible {
   gap: 16px;
 }
 
+.home-screen {
+  display: grid;
+  gap: 16px;
+  min-height: auto;
+  grid-template-rows: auto auto;
+}
+
+.home-board {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(420px, 1fr);
+  align-items: center;
+  gap: 42px;
+  min-height: 430px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 40px 42px;
+  box-shadow: var(--shadow-soft);
+}
+
+.home-copy {
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  max-width: 560px;
+}
+
+.home-kicker {
+  width: fit-content;
+  border-left: 4px solid var(--teal);
+  color: var(--teal-dark);
+  padding: 2px 0 2px 10px;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.home-copy h2 {
+  margin: 0;
+  font-size: 44px;
+  line-height: 1.08;
+}
+
+.home-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.home-start-button {
+  min-width: 150px;
+}
+
+.home-preview {
+  display: grid;
+  gap: 12px;
+  border-left: 1px solid var(--line);
+  padding-left: 42px;
+}
+
+.preview-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.preview-strip div {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfdfc;
+  padding: 12px;
+  min-width: 0;
+}
+
+.preview-strip span,
+.preview-article span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.preview-strip strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-article {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #ffffff;
+  padding: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+.preview-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.preview-doc-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid rgba(0, 108, 99, 0.32);
+  border-radius: var(--radius);
+  background: rgba(0, 143, 131, 0.08);
+  color: var(--teal-dark) !important;
+  font-weight: 900;
+}
+
+.preview-title-row strong {
+  overflow: hidden;
+  font-size: 24px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-lines {
+  display: grid;
+  gap: 8px;
+}
+
+.preview-lines span {
+  display: block;
+  height: 10px;
+  border-radius: 2px;
+  background: #e8eeee;
+}
+
+.preview-lines span:nth-child(1) {
+  width: 96%;
+}
+
+.preview-lines span:nth-child(2) {
+  width: 82%;
+}
+
+.preview-lines span:nth-child(3) {
+  width: 64%;
+}
+
+.preview-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.preview-link-row span {
+  border: 1px solid rgba(11, 111, 189, 0.2);
+  border-radius: 4px;
+  background: rgba(11, 111, 189, 0.06);
+  color: #0b6fbd;
+  padding: 6px 8px;
+  font-weight: 800;
+}
+
 .topbar,
 .round-strip,
 .content-grid,
@@ -71,14 +255,16 @@ a:focus-visible {
 .topbar {
   position: sticky;
   z-index: 10;
-  top: 0;
+  top: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid rgba(200, 211, 207, 0.82);
-  background: rgba(246, 248, 247, 0.92);
-  padding: 10px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-soft);
   backdrop-filter: blur(14px);
 }
 
@@ -490,6 +676,12 @@ body.is-loading .game-wiki-link {
   color: #6f7976;
 }
 
+.wiki-article .wiki-link-external-disabled {
+  border-bottom: 1px dotted rgba(111, 121, 118, 0.45);
+  color: #6f7976;
+  cursor: not-allowed;
+}
+
 .wiki-edit-section {
   display: none;
 }
@@ -790,6 +982,60 @@ body.is-loading .game-wiki-link {
   box-shadow: var(--shadow);
 }
 
+.result-dialog h2 {
+  margin: 6px 0 8px;
+  overflow-wrap: anywhere;
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.result-dialog p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.result-kicker {
+  color: var(--teal-dark);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.result-path-list {
+  display: grid;
+  gap: 7px;
+  max-height: 220px;
+  margin: 18px 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.result-path-list li {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfdfc;
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-path-list li:last-child {
+  border-color: rgba(0, 143, 131, 0.42);
+  background: rgba(0, 143, 131, 0.08);
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.result-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
 .result-dialog::backdrop {
   background: rgba(24, 33, 31, 0.38);
 }
@@ -797,6 +1043,23 @@ body.is-loading .game-wiki-link {
 @media (max-width: 960px) {
   .app-shell {
     padding: 16px;
+  }
+
+  .home-screen {
+    min-height: auto;
+  }
+
+  .home-board {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    padding: 24px;
+  }
+
+  .home-preview {
+    min-height: auto;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+    padding: 24px 0 0;
   }
 
   .round-strip,
@@ -831,10 +1094,56 @@ body.is-loading .game-wiki-link {
     width: 100%;
   }
 
+  .home-copy h2 {
+    font-size: 31px;
+  }
+
+  .home-copy p {
+    font-size: 15px;
+  }
+
+  .preview-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-article {
+    padding: 16px;
+  }
+
+  .preview-title-row strong {
+    font-size: 21px;
+  }
+
+  .home-actions,
+  .home-start-button {
+    width: 100%;
+  }
+
   .wiki-stage-header {
     align-items: stretch;
     flex-direction: column;
     padding: 16px;
+  }
+
+  .article-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-left: 0;
+  }
+
+  .sticky-goal {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .path-meta {
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .path-meta strong {
+    max-width: 56vw;
   }
 
   .wiki-stage-header h2 {
