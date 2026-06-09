@@ -208,9 +208,7 @@ async function handleClick(body) {
 
 async function pickRandomTitle() {
   try {
-    const response = await fetch("https://namu.wiki/random", {
-      headers: NAMU_HEADERS
-    });
+    const response = await fetch(`${process.env.NAMU_PROXY_BASE}/article?title=${encodeURIComponent(key)}`);
     const article = extractArticle(await response.text(), "");
     if (article.title && article.links.length > 0) return article.title;
   } catch {
