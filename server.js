@@ -104,6 +104,10 @@ export async function handleRequest(request, response) {
       return sendJson(response, { ok: true });
     }
 
+    if (url.pathname === "/api/probe" && request.method === "GET") {
+      return sendJson(response, await probeUpstream(url.searchParams.get("title")));
+    }
+
     if (url.pathname === "/api/round" && request.method === "GET") {
       return sendJson(response, await createRound({
         startTitle: url.searchParams.get("start"),
@@ -374,6 +378,88 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+async function probeUpstream(title = "일본") {
+  const key = normalizeTitle(title) || "일본";
+  const articleUrl = makeArticleUrl(key);
+  const encodedArticleUrl = encodeURIComponent(articleUrl);
+  const targets = [
+    {
+      name: "namu-direct-default",
+      url: articleUrl
+    },
+    {
+      name: "namu-direct-browser-headers",
+      url: articleUrl,
+      headers: NAMU_HEADERS
+    },
+    {
+      name: "namu-random-browser-headers",
+      url: "https://namu.wiki/random",
+      headers: NAMU_HEADERS
+    },
+    {
+      name: "jina-reader-https",
+      url: `https://r.jina.ai/http://${articleUrl}`
+    },
+    {
+      name: "jina-reader-no-protocol-prefix",
+      url: `https://r.jina.ai/http://https://namu.wiki/w/${encodeTitle(key)}`
+    },
+    {
+      name: "allorigins-raw",
+      url: `https://api.allorigins.win/raw?url=${encodedArticleUrl}`
+    }
+  ];
+
+  return {
+    title: key,
+    runtime: {
+      vercel: process.env.VERCEL || "",
+      region: process.env.VERCEL_REGION || "",
+      node: process.version
+    },
+    generatedAt: new Date().toISOString(),
+    results: await Promise.all(targets.map(probeTarget))
+  };
+}
+
+async function probeTarget(target) {
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+
+  try {
+    const response = await fetch(target.url, {
+      headers: target.headers,
+      redirect: "follow",
+      signal: controller.signal
+    });
+    const text = await response.text();
+    return {
+      name: target.name,
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      finalUrl: response.url,
+      elapsedMs: Date.now() - startedAt,
+      contentType: response.headers.get("content-type") || "",
+      cfRay: response.headers.get("cf-ray") || "",
+      xNamuSource: response.headers.get("x-namu-source") || "",
+      bodySample: text.slice(0, 220)
+    };
+  } catch (error) {
+    return {
+      name: target.name,
+      ok: false,
+      error: error.name || "Error",
+      message: error.message,
+      elapsedMs: Date.now() - startedAt
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function publicRound(round) {
