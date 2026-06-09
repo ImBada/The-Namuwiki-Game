@@ -29,6 +29,8 @@ const NAMU_HEADERS = {
 };
 const ROUND_SECRET =
   process.env.ROUND_SECRET || "the-namuwiki-game-local-round-secret";
+const ALLOW_SYNTHETIC_FALLBACK =
+  process.env.ALLOW_SYNTHETIC_FALLBACK === "1" || process.env.VERCEL === "1";
 
 const documentCache = new Map();
 
@@ -271,6 +273,14 @@ async function getArticle(title) {
   });
 
   if (!response.ok) {
+    if (ALLOW_SYNTHETIC_FALLBACK && response.status === 403) {
+      const article = syntheticArticle(key, response.status);
+      documentCache.set(key, {
+        fetchedAt: Date.now(),
+        article
+      });
+      return article;
+    }
     throw httpError(response.status, `Could not fetch article: ${key}`);
   }
 
@@ -285,6 +295,85 @@ async function getArticle(title) {
   });
 
   return article;
+}
+
+function syntheticArticle(title, upstreamStatus) {
+  const key = normalizeTitle(title);
+  const links = syntheticLinksFor(key);
+  return {
+    title: key,
+    description: `나무위키가 배포 서버 요청을 ${upstreamStatus}으로 거부해 임시 문서를 표시합니다.`,
+    imageUrl: "",
+    canonicalUrl: makeArticleUrl(key),
+    links,
+    linkCount: links.length,
+    quality: {
+      accepted: true,
+      score: 55,
+      linkCount: links.length,
+      reasons: ["synthetic-fallback"]
+    },
+    html: syntheticArticleHtml(key, links)
+  };
+}
+
+function syntheticLinksFor(title) {
+  const pool = uniqueTitles([
+    ...curatedFallbackTitles,
+    ...targetFallbackTitles,
+    "프로그래밍",
+    "자바스크립트",
+    "웹 브라우저",
+    "인터넷",
+    "위키",
+    "대한민국",
+    "일본"
+  ]).filter((candidate) => !sameTitle(candidate, title));
+
+  return pool.map((candidate) => ({
+    title: candidate,
+    text: candidate,
+    href: `/w/${encodeTitle(candidate)}`
+  }));
+}
+
+function syntheticArticleHtml(title, links) {
+  const linkHtml = links
+    .map(
+      (link) =>
+        `<li><a href="#" data-game-title="${escapeHtml(link.title)}" class="game-wiki-link">${escapeHtml(link.text)}</a></li>`
+    )
+    .join("");
+
+  return `
+    <div class="wiki-paragraph">
+      <p><strong>${escapeHtml(title)}</strong> 문서를 불러오는 중 나무위키가 배포 서버 요청을 거부했습니다.</p>
+      <p>아래 링크는 배포 환경에서도 라운드를 계속 테스트할 수 있도록 제공되는 임시 게임 링크입니다.</p>
+    </div>
+    <h2>이동 가능한 문서</h2>
+    <ul>${linkHtml}</ul>
+  `;
+}
+
+function uniqueTitles(titles) {
+  const seen = new Set();
+  const unique = [];
+  for (const title of titles) {
+    const normalized = normalizeTitle(title);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    unique.push(normalized);
+  }
+  return unique;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function publicRound(round) {
