@@ -17,7 +17,16 @@ const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
 const DOCUMENT_TTL_MS = 1000 * 60 * 60 * 6;
 const USER_AGENT =
-  "The-Namuwiki-Game-MVP/0.1 (non-commercial educational prototype)";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+const NAMU_HEADERS = {
+  "User-Agent": USER_AGENT,
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+  "Referer": "https://namu.wiki/",
+  "Sec-Fetch-Dest": "document",
+  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-Site": "same-origin"
+};
 const ROUND_SECRET =
   process.env.ROUND_SECRET || "the-namuwiki-game-local-round-secret";
 
@@ -194,7 +203,7 @@ async function handleClick(body) {
 async function pickRandomTitle() {
   try {
     const response = await fetch("https://namu.wiki/random", {
-      headers: { "User-Agent": USER_AGENT }
+      headers: NAMU_HEADERS
     });
     const article = extractArticle(await response.text(), "");
     if (article.title && article.links.length > 0) return article.title;
@@ -258,7 +267,7 @@ async function getArticle(title) {
   }
 
   const response = await fetch(makeArticleUrl(key), {
-    headers: { "User-Agent": USER_AGENT }
+    headers: NAMU_HEADERS
   });
 
   if (!response.ok) {
