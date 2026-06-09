@@ -117,6 +117,7 @@ export function isPlayableArticleTitle(title, currentTitle = "") {
 }
 
 export function sanitizeArticleHtml(html, currentTitle = "") {
+  // 중간에 세미콜론(;)을 제거하고 정형화된 메서드 체이닝 구조로 복구했습니다.
   let sanitized = String(html || "")
     .replace(//g, "")
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -148,23 +149,19 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
     .replace(/\shref=["']\/([^"']+)["']/gi, ' href="https://namu.wiki/$1"')
     .replace(/\[편집\]/g, "");
 
-  // [수정 핵심 레이어] 나무위키의 Lazy Loading 이미지 태그 처리 로직 추가
-  // <img ...> 내부에 data-src가 존재하면 기존 투명 대용 src를 data-src 주소로 치환합니다.
+  // 나무위키의 Lazy Loading 이미지 태그 처리 로직
   sanitized = sanitized.replace(/<img\b([^>]*?)>/gi, (imgTag) => {
     const dataSrcMatch = imgTag.match(/data-src=(["'])([^"']+)\1/i);
     if (dataSrcMatch) {
       let realSrc = dataSrcMatch[2];
-      // 프로토콜 생략형 경로일 경우 규격 강제 보정
       if (realSrc.startsWith("//")) {
         realSrc = `https:${realSrc}`;
       } else if (realSrc.startsWith("/")) {
         realSrc = `https://namu.wiki${realSrc}`;
       }
       
-      // 기존 빈 src 주소를 실제 주소(realSrc)로 완전히 강제 덮어쓰기합니다.
       let updatedTag = imgTag.replace(/src=(["'])[^"']*\1/i, `src="${realSrc}"`);
       
-      // 혹시 src 속성 자체가 누락된 특이 케이스가 있다면 강제로 주입합니다.
       if (!/src=/i.test(updatedTag)) {
         updatedTag = updatedTag.replace("<img", `<img src="${realSrc}"`);
       }
