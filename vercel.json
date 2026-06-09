@@ -7,6 +7,18 @@
   },
   "routes": [
     {
+      "src": "/api/health",
+      "dest": "/api/health.js"
+    },
+    {
+      "src": "/api/round",
+      "dest": "/api/round.js"
+    },
+    {
+      "src": "/api/click",
+      "dest": "/api/click.js"
+    },
+    {
       "handle": "filesystem"
     },
     {
