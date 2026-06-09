@@ -208,7 +208,9 @@ async function handleClick(body) {
 
 async function pickRandomTitle() {
   try {
-    const response = await fetch(`${process.env.NAMU_PROXY_BASE}/article?title=${encodeURIComponent(key)}`);
+    const response = await fetch("https://namu.wiki/random", {
+      headers: NAMU_HEADERS
+    });
     const article = extractArticle(await response.text(), "");
     if (article.title && article.links.length > 0) return article.title;
   } catch {
@@ -270,9 +272,7 @@ async function getArticle(title) {
     return cached.article;
   }
 
-  const response = await fetch(makeArticleUrl(key), {
-    headers: NAMU_HEADERS
-  });
+  const response = await fetch(`${process.env.NAMU_PROXY_BASE}/article?title=${encodeURIComponent(key)}`);
 
   if (!response.ok) {
     if (ALLOW_SYNTHETIC_FALLBACK && response.status === 403) {
