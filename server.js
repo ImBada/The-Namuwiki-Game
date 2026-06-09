@@ -43,57 +43,19 @@ const mimeTypes = {
 };
 
 const curatedFallbackTitles = [
-  "대한민국",
-  "서울특별시",
-  "인터넷",
-  "게임",
-  "컴퓨터",
-  "한글",
-  "위키",
-  "과학",
-  "역사",
-  "음악",
-  "영화",
-  "축구",
-  "스타크래프트",
-  "부산광역시",
-  "일본",
-  "미국",
-  "유럽",
-  "철도",
-  "자동차",
-  "스마트폰",
-  "프로그래밍"
+  "대한민국", "서울특별시", "인터넷", "게임", "컴퓨터", "한글", "위키", "과학",
+  "역사", "음악", "영화", "축구", "스타크래프트", "부산광역시", "일본", "미국",
+  "유럽", "철도", "자동차", "스마트폰", "프로그래밍"
 ];
 
 const targetFallbackTitles = [
-  "대한민국",
-  "서울특별시",
-  "인터넷",
-  "게임",
-  "컴퓨터",
-  "한글",
-  "영화",
-  "음악",
-  "축구",
-  "부산광역시",
-  "일본",
-  "미국",
-  "철도",
-  "자동차"
+  "대한민국", "서울특별시", "인터넷", "게임", "컴퓨터", "한글", "영화", "음악",
+  "축구", "부산광역시", "일본", "미국", "철도", "자동차"
 ];
 
 const randomPickAttempts = 6;
 const sensitiveTerms = [
-  "강간",
-  "성폭행",
-  "성추행",
-  "능욕",
-  "자살",
-  "살인",
-  "고문",
-  "학살",
-  "아동학대"
+  "강간", "성폭행", "성추행", "능욕", "자살", "살인", "고문", "학살", "아동학대"
 ];
 
 export async function handleRequest(request, response) {
@@ -272,7 +234,14 @@ async function getArticle(title) {
     return cached.article;
   }
 
-  const response = await fetch(`${process.env.NAMU_PROXY_BASE}/article?title=${encodeURIComponent(key)}`);
+  // 핵심 수정: 프록시 서버 및 중간 게이트웨이가 압축(br, gzip)을 하지 못하도록 헤더를 원천 고정합니다.
+  const response = await fetch(`${process.env.NAMU_PROXY_BASE}/article?title=${encodeURIComponent(key)}`, {
+    headers: {
+      "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "accept-encoding": "identity", // 중간 서버들의 압축 처리를 절대 금지하고 원본 텍스트 유지를 강제함
+      "connection": "keep-alive"
+    }
+  });
 
   if (!response.ok) {
     if (ALLOW_SYNTHETIC_FALLBACK && response.status === 403) {
@@ -286,7 +255,11 @@ async function getArticle(title) {
     throw httpError(response.status, `Could not fetch article: ${key}`);
   }
 
-  const article = extractArticle(await response.text(), key);
+  // 인프라 레이어의 강제 압축 여파를 한 번 더 방어하기 위해 바이너리로 수집 후 UTF-8 변환
+  const arrayBuffer = await response.arrayBuffer();
+  const rawText = Buffer.from(arrayBuffer).toString("utf8");
+
+  const article = extractArticle(rawText, key);
   documentCache.set(normalizeTitle(article.title), {
     fetchedAt: Date.now(),
     article
@@ -429,8 +402,12 @@ async function probeTarget(target) {
   const timeout = setTimeout(() => controller.abort(), 6000);
 
   try {
+    // 테스트 요청 시에도 압축을 사용하지 않도록 헤더 구조 정의
+    const reqHeaders = target.headers ? { ...target.headers } : {};
+    reqHeaders["accept-encoding"] = "identity";
+
     const response = await fetch(target.url, {
-      headers: target.headers,
+      headers: reqHeaders,
       redirect: "follow",
       signal: controller.signal
     });
