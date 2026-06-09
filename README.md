@@ -30,15 +30,13 @@ npm test
 The app is prepared for Vercel with:
 
 - Static files served from `public/`.
-- API requests routed through separate files in `api/`.
-- `vercel.json` checks filesystem/API routes first, then falls back to
-  `index.html` for the single-page app.
+- Vercel routes all requests to `server.js`, which serves both static assets
+  and `/api/*` JSON endpoints.
 - Signed round-state tokens, so `/api/click` does not depend on serverless
   instance memory.
 
 Deploy from the repository root with Vercel's default project settings. No build
-command is required. Leave the Output Directory setting empty/default so Vercel
-can detect both `public/` assets and `api/` functions.
+command is required. Leave the Output Directory setting empty/default.
 
 Optional environment variable:
 
