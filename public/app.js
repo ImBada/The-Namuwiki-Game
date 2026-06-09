@@ -329,6 +329,10 @@ function renderError(error) {
 
 async function fetchJson(url, options) {
   const response = await fetch(url, options);
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error("API가 JSON 대신 HTML을 반환했습니다. Vercel API 라우팅을 확인하세요.");
+  }
   const payload = await response.json();
   if (!response.ok) {
     throw new Error(payload.error || "요청을 처리하지 못했습니다.");
