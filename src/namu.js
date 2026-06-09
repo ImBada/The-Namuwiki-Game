@@ -117,9 +117,9 @@ export function isPlayableArticleTitle(title, currentTitle = "") {
 }
 
 export function sanitizeArticleHtml(html, currentTitle = "") {
-  // 중간에 세미콜론(;)을 제거하고 정형화된 메서드 체이닝 구조로 복구했습니다.
+  // String(html || "") 뒤의 세미콜론(;)을 마침표(.)로 수정하여 체이닝을 정상 연결했습니다.
   let sanitized = String(html || "")
-    .replace(//g, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
@@ -149,7 +149,7 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
     .replace(/\shref=["']\/([^"']+)["']/gi, ' href="https://namu.wiki/$1"')
     .replace(/\[편집\]/g, "");
 
-  // 나무위키의 Lazy Loading 이미지 태그 처리 로직
+  // 이미지 지연 로딩 처리 레이어
   sanitized = sanitized.replace(/<img\b([^>]*?)>/gi, (imgTag) => {
     const dataSrcMatch = imgTag.match(/data-src=(["'])([^"']+)\1/i);
     if (dataSrcMatch) {
@@ -161,7 +161,6 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
       }
       
       let updatedTag = imgTag.replace(/src=(["'])[^"']*\1/i, `src="${realSrc}"`);
-      
       if (!/src=/i.test(updatedTag)) {
         updatedTag = updatedTag.replace("<img", `<img src="${realSrc}"`);
       }
