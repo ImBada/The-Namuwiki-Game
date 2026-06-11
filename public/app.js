@@ -316,7 +316,7 @@ function render() {
   els.pathGoalTitle.textContent = round?.goalTitle || "-";
   els.clickCount.textContent = String(round?.clickCount || 0);
   els.difficultyLabel.textContent = round?.difficulty?.label || "-";
-  els.articleTitle.textContent = article?.title || "라운드를 시작하세요";
+  els.articleTitle.textContent = article?.title || "라운드를 시작합니다";
   els.sourceLink.href = article?.canonicalUrl || "https://namu.wiki/";
   els.wikiArticle.innerHTML =
     article?.html || '<p class="wiki-placeholder">문서를 불러오는 중입니다.</p>';
