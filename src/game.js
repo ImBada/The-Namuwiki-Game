@@ -1,6 +1,8 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { brotliCompress, brotliDecompress } from "node:zlib";
+import { promisify } from "node:util";
 import {
   encodeTitle,
   extractArticle,
@@ -25,6 +27,8 @@ const DOCUMENT_CACHE_DIR = resolve(
   process.env.DOCUMENT_CACHE_DIR ||
   join(DATA_DIR, "document-cache")
 );
+const compressCachePayload = promisify(brotliCompress);
+const decompressCachePayload = promisify(brotliDecompress);
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 const NAMU_HEADERS = {
@@ -339,11 +343,11 @@ function pruneDocumentCache(now = Date.now()) {
 
 async function readCachedArticleFromDisk(key, now = Date.now()) {
   try {
-    const payload = JSON.parse(await readFile(cacheFilePath(key), "utf8"));
+    const payload = await readCachePayload(key);
     const fetchedAt = Number(payload.fetchedAt || 0);
 
     if (!fetchedAt || now - fetchedAt >= DOCUMENT_TTL_MS) {
-      await unlink(cacheFilePath(key)).catch(() => {});
+      await unlinkCacheFiles(key);
       return null;
     }
 
@@ -363,14 +367,19 @@ async function readCachedArticleFromDisk(key, now = Date.now()) {
 async function writeCachedArticleToDisk(key, article, fetchedAt = Date.now()) {
   try {
     await mkdir(DOCUMENT_CACHE_DIR, { recursive: true });
-    await writeFile(cacheFilePath(key), `${JSON.stringify({
+    const payload = JSON.stringify({
       version: 1,
+      encoding: "br",
       key,
       fetchedAt,
       article
-    })}\n`);
-  } catch {
-    // Persistent cache is opportunistic; memory cache still keeps the game working.
+    });
+    await writeFile(cacheFilePath(key, ".json.br"), await compressCachePayload(payload));
+    await unlink(cacheFilePath(key, ".json")).catch(() => {});
+  } catch (error) {
+    console.warn(
+      `Could not write document cache for "${key}" to ${DOCUMENT_CACHE_DIR}: ${error.message}`
+    );
   }
 }
 
@@ -380,7 +389,7 @@ async function pruneDocumentCacheDirectory(now = Date.now()) {
     const cacheEntries = [];
 
     for (const entry of entries) {
-      if (!entry.endsWith(".json")) continue;
+      if (!entry.endsWith(".json") && !entry.endsWith(".json.br")) continue;
       const filePath = join(DOCUMENT_CACHE_DIR, entry);
       const fileStat = await stat(filePath);
       if (now - fileStat.mtimeMs >= DOCUMENT_TTL_MS) {
@@ -395,16 +404,43 @@ async function pruneDocumentCacheDirectory(now = Date.now()) {
       const oldest = cacheEntries.shift();
       await unlink(oldest.filePath).catch(() => {});
     }
-  } catch {
-    // Ignore missing or unwritable persistent cache directories.
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      console.warn(`Could not prune document cache in ${DOCUMENT_CACHE_DIR}: ${error.message}`);
+    }
   }
 }
 
-function cacheFilePath(key) {
+async function readCachePayload(key) {
+  try {
+    const compressedPayload = await readFile(cacheFilePath(key, ".json.br"));
+    return JSON.parse((await decompressCachePayload(compressedPayload)).toString("utf8"));
+  } catch {
+    const legacyPayload = JSON.parse(await readFile(cacheFilePath(key, ".json"), "utf8"));
+    await writeFile(
+      cacheFilePath(key, ".json.br"),
+      await compressCachePayload(JSON.stringify({
+        ...legacyPayload,
+        encoding: "br"
+      }))
+    ).catch(() => {});
+    await unlink(cacheFilePath(key, ".json")).catch(() => {});
+    return legacyPayload;
+  }
+}
+
+async function unlinkCacheFiles(key) {
+  await Promise.all([
+    unlink(cacheFilePath(key, ".json.br")).catch(() => {}),
+    unlink(cacheFilePath(key, ".json")).catch(() => {})
+  ]);
+}
+
+function cacheFilePath(key, extension = ".json.br") {
   const digest = createHash("sha256")
     .update(normalizeTitle(key))
     .digest("hex");
-  return join(DOCUMENT_CACHE_DIR, `${digest}.json`);
+  return join(DOCUMENT_CACHE_DIR, `${digest}${extension}`);
 }
 
 function looksLikeClientShell(article) {
