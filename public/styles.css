@@ -489,15 +489,6 @@ a:focus-visible {
   white-space: nowrap;
 }
 
-.article-summary {
-  margin: 0;
-  border-bottom: 1px solid var(--line);
-  padding: 13px 20px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.55;
-}
-
 .wiki-article {
   padding: 22px 26px 30px;
   overflow-wrap: anywhere;
@@ -1175,7 +1166,6 @@ body.is-loading .game-wiki-link {
     font-size: 24px;
   }
 
-  .article-summary,
   .wiki-article {
     padding: 14px 16px;
   }

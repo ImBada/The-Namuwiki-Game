@@ -24,7 +24,6 @@ const els = {
   clickCount: document.querySelector("#clickCount"),
   difficultyLabel: document.querySelector("#difficultyLabel"),
   articleTitle: document.querySelector("#articleTitle"),
-  articleDescription: document.querySelector("#articleDescription"),
   stickyGoalTitle: document.querySelector("#stickyGoalTitle"),
   sourceLink: document.querySelector("#sourceLink"),
   wikiArticle: document.querySelector("#wikiArticle"),
@@ -124,8 +123,6 @@ function render() {
   els.clickCount.textContent = String(round?.clickCount || 0);
   els.difficultyLabel.textContent = round?.difficulty?.label || "-";
   els.articleTitle.textContent = article?.title || "라운드를 시작하세요";
-  els.articleDescription.textContent =
-    article?.description || "문서 정보를 불러오는 중입니다.";
   els.sourceLink.href = article?.canonicalUrl || "https://namu.wiki/";
   els.wikiArticle.innerHTML =
     article?.html || '<p class="wiki-placeholder">문서를 불러오는 중입니다.</p>';
@@ -323,8 +320,16 @@ function renderStatus(isLoading = false) {
 
 function renderError(error) {
   els.articleTitle.textContent = "오류";
-  els.articleDescription.textContent = error.message;
-  els.wikiArticle.innerHTML = '<p class="wiki-placeholder">문서 표시를 중단했습니다.</p>';
+  els.wikiArticle.innerHTML = `<p class="wiki-placeholder">${escapeHtml(error.message)}</p>`;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 async function fetchJson(url, options) {

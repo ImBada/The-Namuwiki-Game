@@ -170,9 +170,7 @@ async function handleClick(body) {
 
 async function pickRandomTitle() {
   try {
-    const response = await fetch("https://namu.wiki/random", {
-      headers: NAMU_HEADERS
-    });
+    const response = await fetch("https://namu.wiki/random");
     const article = extractArticle(await response.text(), "");
     if (article.title && article.links.length > 0) return article.title;
   } catch {
@@ -235,35 +233,53 @@ async function getArticle(title) {
   }
 
   const proxyBase = process.env.NAMU_PROXY_BASE?.replace(/\/+$/, "");
-  const articleUrl = proxyBase
-    ? `${proxyBase}/article?title=${encodeURIComponent(key)}`
-    : makeArticleUrl(key);
-  const headers = proxyBase
-    ? {
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "accept-encoding": "identity",
-        "connection": "keep-alive"
-      }
-    : NAMU_HEADERS;
+  const attempts = proxyBase
+    ? [
+        {
+          url: `${proxyBase}/article?title=${encodeURIComponent(key)}`,
+          headers: {
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "accept-encoding": "identity",
+            "connection": "keep-alive"
+          }
+        }
+      ]
+    : [
+        { url: makeArticleUrl(key) },
+        { url: makeArticleUrl(key), headers: NAMU_HEADERS }
+      ];
 
-  const response = await fetch(articleUrl, { headers });
+  let lastStatus = 0;
+  let article = null;
 
-  if (!response.ok) {
-    if (ALLOW_SYNTHETIC_FALLBACK && response.status === 403) {
-      const article = syntheticArticle(key, response.status);
+  for (const attempt of attempts) {
+    const response = await fetch(attempt.url, { headers: attempt.headers });
+    lastStatus = response.status;
+
+    if (!response.ok) {
+      continue;
+    }
+
+    const rawText = Buffer.from(await response.arrayBuffer()).toString("utf8");
+    const candidate = extractArticle(rawText, key);
+    if (!looksLikeClientShell(candidate)) {
+      article = candidate;
+      break;
+    }
+  }
+
+  if (!article) {
+    if (ALLOW_SYNTHETIC_FALLBACK && lastStatus === 403) {
+      const article = syntheticArticle(key, lastStatus);
       documentCache.set(key, {
         fetchedAt: Date.now(),
         article
       });
       return article;
     }
-    throw httpError(response.status, `Could not fetch article: ${key}`);
+    throw httpError(lastStatus || 502, `Could not fetch article: ${key}`);
   }
 
-  const arrayBuffer = await response.arrayBuffer();
-  const rawText = Buffer.from(arrayBuffer).toString("utf8");
-
-  const article = extractArticle(rawText, key);
   documentCache.set(normalizeTitle(article.title), {
     fetchedAt: Date.now(),
     article
@@ -274,6 +290,11 @@ async function getArticle(title) {
   });
 
   return article;
+}
+
+function looksLikeClientShell(article) {
+  const html = String(article?.html || "");
+  return (article?.links || []).length === 0 && /id=["']app-loading["']|Loading\.\.\./i.test(html);
 }
 
 function syntheticArticle(title, upstreamStatus) {
