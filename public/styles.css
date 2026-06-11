@@ -1017,6 +1017,57 @@ a:focus-visible {
   margin: 0.7em 0;
 }
 
+.wiki-article .wiki-category-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0;
+  width: 100%;
+  margin: 0 0 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  padding: 5px 14px;
+  color: #202322;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.wiki-article .wiki-category-label {
+  flex: 0 0 auto;
+  margin: 0;
+  color: #202322;
+  font-weight: 400;
+}
+
+.wiki-article .wiki-category-label::after {
+  content: ":";
+}
+
+.wiki-article .wiki-category-list {
+  display: contents;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-article .wiki-category-list > li {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+
+.wiki-article .wiki-category-list > li:not(:last-child)::after {
+  margin: 0 9px;
+  color: #777;
+  content: "|";
+}
+
+.wiki-article .wiki-category-box .wiki-link-disabled {
+  color: #0275d8;
+  cursor: default;
+}
+
 .wiki-article .wiki-macro-toc {
   clear: both;
   display: inline-block;

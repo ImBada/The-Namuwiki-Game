@@ -1,10 +1,32 @@
 export function normalizeWikiArticleDom(root) {
+  normalizeCategoryBoxes(root);
   foldLeadingUtilityContent(root);
   foldDefaultCollapsedBrowseSection(root);
   normalizeHorizontalFoldingNavboxes(root);
   normalizeSquareImageGrids(root);
   normalizeCompactLinkGrids(root);
   setupAnimatedFolding(root);
+}
+
+function normalizeCategoryBoxes(root) {
+  const candidates = [...root.querySelectorAll("div,section")];
+  for (const candidate of candidates) {
+    if (candidate.closest(".wiki-category-box")) continue;
+
+    const label = [...candidate.children].find(
+      (child) =>
+        child instanceof HTMLElement &&
+        child.textContent.replace(/\s+/g, " ").trim() === "분류"
+    );
+    const list = [...candidate.children].find(
+      (child) => child instanceof HTMLElement && child.matches("ul,ol")
+    );
+    if (!label || !list || !list.querySelector("li")) continue;
+
+    candidate.classList.add("wiki-category-box");
+    label.classList.add("wiki-category-label");
+    list.classList.add("wiki-category-list");
+  }
 }
 
 export function syncArticleLinkState(root, { isMoving, hasVisited }) {
