@@ -73,7 +73,8 @@ export async function handleRequest(request, response) {
     if (url.pathname === "/api/round" && request.method === "GET") {
       return sendJson(response, await createRound({
         startTitle: url.searchParams.get("start"),
-        goalTitle: url.searchParams.get("goal")
+        goalTitle: url.searchParams.get("goal"),
+        seed: url.searchParams.get("seed")
       }));
     }
 
@@ -101,23 +102,45 @@ if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
 async function createRound(options = {}) {
   const requestedStartTitle = normalizeTitle(options.startTitle);
   const requestedGoalTitle = normalizeTitle(options.goalTitle);
+  const seed = normalizeRoundSeed(options.seed);
   const startArticle = requestedStartTitle
     ? await getArticle(requestedStartTitle)
-    : await pickArticleCandidate({
-        role: "start",
-        exceptTitles: [],
-        minLinks: 12
-      });
+    : seed
+      ? await pickSeededArticleCandidate({
+          seed,
+          role: "start",
+          exceptTitles: [],
+          minLinks: 12
+        })
+      : await pickArticleCandidate({
+          role: "start",
+          exceptTitles: [],
+          minLinks: 12
+        });
   let goalArticle = requestedGoalTitle
     ? await getArticle(requestedGoalTitle)
-    : await pickArticleCandidate({
-        role: "goal",
-        exceptTitles: [startArticle.title],
-        minLinks: 4
-      });
+    : seed
+      ? await pickSeededArticleCandidate({
+          seed,
+          role: "goal",
+          exceptTitles: [startArticle.title],
+          minLinks: 4
+        })
+      : await pickArticleCandidate({
+          role: "goal",
+          exceptTitles: [startArticle.title],
+          minLinks: 4
+        });
 
   if (normalizeTitle(goalArticle.title) === normalizeTitle(startArticle.title)) {
-    goalArticle = await getArticle(pickCuratedTitle(startArticle.title, targetFallbackTitles));
+    goalArticle = seed
+      ? await pickSeededArticleCandidate({
+          seed: `${seed}:goal-retry`,
+          role: "goal",
+          exceptTitles: [startArticle.title],
+          minLinks: 4
+        })
+      : await getArticle(pickCuratedTitle(startArticle.title, targetFallbackTitles));
   }
 
   const difficulty = estimateDifficulty(startArticle, goalArticle);
@@ -129,7 +152,8 @@ async function createRound(options = {}) {
     path: [startArticle.title],
     startedAt: Date.now(),
     clickCount: 0,
-    difficulty
+    difficulty,
+    seed
   };
 
   return {
@@ -215,6 +239,39 @@ async function pickArticleCandidate({ role, exceptTitles, minLinks }) {
   }
 
   return getArticle(pickCuratedTitle(exceptTitles[0], acceptedFallbacks));
+}
+
+async function pickSeededArticleCandidate({ seed, role, exceptTitles, minLinks }) {
+  const pool = uniqueTitles([
+    ...(role === "goal" ? targetFallbackTitles : curatedFallbackTitles),
+    ...curatedFallbackTitles,
+    ...targetFallbackTitles
+  ]);
+  const candidates = [];
+
+  for (const title of stableSeededOrder(pool, `${seed}:${role}`)) {
+    if (exceptTitles.some((exceptTitle) => sameTitle(title, exceptTitle))) continue;
+
+    try {
+      const article = await getArticle(title);
+      const quality = scoreArticleQuality(article, { minLinks, role });
+      if (quality.accepted) return article;
+      candidates.push({ article, quality });
+    } catch {
+      // Try the next deterministic candidate.
+    }
+  }
+
+  const bestCandidate = candidates
+    .filter(({ article }) => !exceptTitles.some((exceptTitle) => sameTitle(article.title, exceptTitle)))
+    .sort((a, b) => b.quality.score - a.quality.score)[0];
+
+  if (bestCandidate) return bestCandidate.article;
+
+  const fallbackTitle = stableSeededOrder(pool, `${seed}:${role}:fallback`).find(
+    (title) => !exceptTitles.some((exceptTitle) => sameTitle(title, exceptTitle))
+  );
+  return getArticle(fallbackTitle || pool[0]);
 }
 
 function pickCuratedTitle(exceptTitle = "", pool = curatedFallbackTitles) {
@@ -471,7 +528,8 @@ function publicRound(round) {
     path: round.path,
     clickCount: round.clickCount,
     startedAt: round.startedAt,
-    difficulty: round.difficulty
+    difficulty: round.difficulty,
+    seed: round.seed || ""
   };
 }
 
@@ -483,7 +541,8 @@ function encodeRoundToken(round) {
     path: round.path,
     clickCount: round.clickCount,
     startedAt: round.startedAt,
-    difficulty: round.difficulty
+    difficulty: round.difficulty,
+    seed: round.seed || ""
   })).toString("base64url");
   return `${payload}.${signRoundPayload(payload)}`;
 }
@@ -642,8 +701,46 @@ function sameTitle(a, b) {
   return normalizeTitle(a) === normalizeTitle(b);
 }
 
+export function normalizeRoundSeed(seed) {
+  return String(seed || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+}
+
 function shuffled(values) {
   return [...values].sort(() => Math.random() - 0.5);
+}
+
+export function stableSeededOrder(values, seed) {
+  const random = createSeededRandom(seed);
+  const ordered = [...values];
+  for (let index = ordered.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [ordered[index], ordered[swapIndex]] = [ordered[swapIndex], ordered[index]];
+  }
+  return ordered;
+}
+
+function createSeededRandom(seed) {
+  let state = hashSeed(seed);
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashSeed(seed) {
+  let hash = 2166136261;
+  const normalized = normalizeRoundSeed(seed);
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash ^= normalized.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
 async function serveStatic(pathname, response) {

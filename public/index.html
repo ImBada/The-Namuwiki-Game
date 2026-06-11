@@ -29,38 +29,44 @@
             </div>
           </div>
 
-          <div class="home-preview" aria-hidden="true">
-            <div class="preview-strip">
-              <div>
-                <span>시작</span>
-                <strong>대한민국</strong>
+          <div class="home-preview">
+            <section class="daily-card" aria-labelledby="dailyTitle">
+              <div class="daily-heading">
+                <span class="preview-doc-icon" aria-hidden="true">N</span>
+                <div>
+                  <span id="dailySeedLabel">오늘의 시드</span>
+                  <h3 id="dailyTitle">일일 챌린지</h3>
+                </div>
               </div>
-              <div>
-                <span>목표</span>
-                <strong>일본</strong>
+              <div class="daily-meta">
+                <span>Seed</span>
+                <strong id="dailySeedText">-</strong>
               </div>
-              <div>
-                <span>클릭</span>
-                <strong>0</strong>
+              <div class="daily-countdown">
+                <span>남은 시간</span>
+                <strong id="dailyTimeLeft">--:--:--</strong>
               </div>
-            </div>
-            <div class="preview-article">
-              <div class="preview-title-row">
-                <span class="preview-doc-icon">N</span>
-                <strong>대한민국</strong>
+              <div class="daily-route">
+                <div>
+                  <span>시작</span>
+                  <strong id="dailyStartTitle">불러오는 중</strong>
+                </div>
+                <div>
+                  <span>목표</span>
+                  <strong id="dailyGoalTitle">불러오는 중</strong>
+                </div>
               </div>
-              <div class="preview-lines">
-                <span></span>
-                <span></span>
-                <span></span>
+              <p id="dailyPreviewStatus" class="daily-preview-status">오늘의 문제를 준비하고 있습니다.</p>
+              <button id="dailyChallengeButton" class="primary-button" type="button">오늘의 챌린지</button>
+            </section>
+
+            <section class="leaderboard-card" aria-labelledby="leaderboardTitle">
+              <div class="leaderboard-heading">
+                <h3 id="leaderboardTitle">순위표</h3>
+                <span id="leaderboardScope">오늘</span>
               </div>
-              <div class="preview-link-row">
-                <span>역사</span>
-                <span>문화</span>
-                <span>정치</span>
-                <span>일본</span>
-              </div>
-            </div>
+              <ol id="dailyLeaderboard" class="leaderboard-list"></ol>
+            </section>
           </div>
         </section>
       </section>
@@ -76,6 +82,7 @@
           </div>
           <div class="top-actions">
             <span id="roundStatus" class="status-pill">라운드 준비</span>
+            <button id="homeButton" class="secondary-button" type="button">메인</button>
             <button id="newRoundButton" class="primary-button" type="button">새 라운드</button>
           </div>
         </header>

@@ -133,6 +133,178 @@ a:focus-visible {
   padding-left: 42px;
 }
 
+.daily-card,
+.leaderboard-card {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #ffffff;
+  padding: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+.daily-heading,
+.leaderboard-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.daily-heading {
+  justify-content: flex-start;
+}
+
+.daily-heading span:not(.preview-doc-icon),
+.daily-meta span,
+.leaderboard-heading span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.daily-heading h3,
+.leaderboard-heading h3 {
+  margin: 2px 0 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.daily-meta {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.daily-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(183, 121, 31, 0.24);
+  border-radius: 6px;
+  background: rgba(255, 250, 242, 0.72);
+  padding: 10px 12px;
+}
+
+.daily-meta strong {
+  overflow: hidden;
+  color: var(--teal-dark);
+  font-size: 18px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.daily-countdown span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.daily-countdown strong {
+  color: #8a570f;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.daily-route {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.daily-route div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfdfc;
+  padding: 10px;
+}
+
+.daily-route span,
+.daily-preview-status {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.daily-route strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.daily-preview-status {
+  margin: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leaderboard-list li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfdfc;
+  padding: 8px 10px;
+}
+
+.leaderboard-list li > span {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(0, 143, 131, 0.1);
+  color: var(--teal-dark);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.leaderboard-list strong {
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-list em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.leaderboard-list .leaderboard-empty {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .preview-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -344,6 +516,26 @@ a:focus-visible {
 }
 
 .primary-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.secondary-button {
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 0 16px;
+  background: #ffffff;
+  color: var(--teal-dark);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.secondary-button:hover {
+  background: #f3f8f7;
+}
+
+.secondary-button:disabled {
   cursor: wait;
   opacity: 0.65;
 }
@@ -1106,7 +1298,8 @@ body.is-loading .game-wiki-link {
     width: 100%;
   }
 
-  .primary-button {
+  .primary-button,
+  .secondary-button {
     width: 100%;
   }
 
@@ -1124,6 +1317,10 @@ body.is-loading .game-wiki-link {
 
   .preview-article {
     padding: 16px;
+  }
+
+  .daily-route {
+    grid-template-columns: 1fr;
   }
 
   .preview-title-row strong {
