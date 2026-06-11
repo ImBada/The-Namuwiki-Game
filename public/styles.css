@@ -737,6 +737,31 @@ body.is-loading .game-wiki-link {
   object-fit: contain;
 }
 
+.wiki-article span[style*="width:"] {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.wiki-article span[style*="width:"] > span[style*="width: 100%"],
+.wiki-article span[style*="width:"] > span[style*="width:100%"] {
+  display: inline-block;
+  line-height: 0;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.wiki-article span[style*="width:"] img[width="100%"] {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.wiki-article span[style*="width:"] > span[style*="width: 100%"] > img[src^="data:image/svg+xml"],
+.wiki-article span[style*="width:"] > span[style*="width:100%"] > img[src^="data:image/svg+xml"] {
+  display: none;
+}
+
 .wiki-article > img,
 .wiki-article .wiki-paragraph > img {
   display: block;
