@@ -17,13 +17,16 @@
               <p>링크만 타고 목표 문서까지</p>
             </div>
           </div>
-          <button class="nickname-button" type="button" data-nickname-button>
-            <span>닉네임</span>
-            <strong data-nickname-label>익명</strong>
-          </button>
+          <div class="home-top-actions">
+            <button id="historyButton" class="secondary-button" type="button">히스토리</button>
+            <button class="nickname-button" type="button" data-nickname-button>
+              <span>닉네임</span>
+              <strong data-nickname-label>익명</strong>
+            </button>
+          </div>
         </header>
 
-        <section class="home-board">
+        <section id="homeBoard" class="home-board">
           <div class="home-copy">
             <span class="home-kicker">NAMUWIKI LINK GAME</span>
             <h2 id="homeTitle">문서에서 문서로</h2>
@@ -74,9 +77,22 @@
             </section>
           </div>
         </section>
-        <p class="storage-note">
-          일일 챌린지를 제외한 모든 플레이 데이터는 브라우저 로컬 저장소에만 기록됩니다.
-          일일 챌린지는 닉네임과 기록만 서버에 저장되며 다음 날 초기화됩니다.
+        <section id="historyScreen" class="history-screen" aria-labelledby="historyTitle" hidden>
+          <div class="history-heading">
+            <div>
+              <span class="home-kicker">LOCAL PLAY HISTORY</span>
+              <h2 id="historyTitle">플레이 히스토리</h2>
+            </div>
+            <div class="history-actions">
+              <button id="clearHistoryButton" class="secondary-button" type="button">전체 삭제</button>
+              <button id="historyBackButton" class="primary-button" type="button">메인으로</button>
+            </div>
+          </div>
+          <ol id="historyList" class="history-list"></ol>
+        </section>
+        <p id="storageNote" class="storage-note">
+          클리어한 플레이 히스토리는 브라우저 로컬 저장소에만 기록됩니다.
+          일일 챌린지 순위표는 닉네임과 기록만 서버에 저장되며 다음 날 초기화됩니다.
         </p>
       </section>
 

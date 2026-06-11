@@ -1,3 +1,7 @@
+const HISTORY_STORAGE_KEY = "namuwiki-game:play-history";
+const HISTORY_LIMIT = 50;
+const VISIBLE_HISTORY_LIMIT = 30;
+
 const state = {
   round: null,
   goal: null,
@@ -9,16 +13,25 @@ const state = {
   dailyScoresLoading: false,
   dailyScoresSeed: "",
   hasStarted: false,
+  homeView: "home",
   completedElapsedSeconds: 0,
   isMoving: false,
+  savedHistoryRoundId: "",
   tick: null
 };
 
 const els = {
   homeScreen: document.querySelector("#homeScreen"),
+  homeBoard: document.querySelector("#homeBoard"),
+  historyScreen: document.querySelector("#historyScreen"),
   startGameButton: document.querySelector("#startGameButton"),
   seedGameButton: document.querySelector("#seedGameButton"),
   dailyChallengeButton: document.querySelector("#dailyChallengeButton"),
+  historyButton: document.querySelector("#historyButton"),
+  historyBackButton: document.querySelector("#historyBackButton"),
+  clearHistoryButton: document.querySelector("#clearHistoryButton"),
+  historyList: document.querySelector("#historyList"),
+  storageNote: document.querySelector("#storageNote"),
   dailyDateText: document.querySelector("#dailyDateText"),
   dailyTimeLeft: document.querySelector("#dailyTimeLeft"),
   dailyStartTitle: document.querySelector("#dailyStartTitle"),
@@ -66,6 +79,9 @@ const els = {
 els.startGameButton.addEventListener("click", startFreshRound);
 els.seedGameButton.addEventListener("click", openSeedDialog);
 els.dailyChallengeButton.addEventListener("click", startDailyChallenge);
+els.historyButton.addEventListener("click", showHistory);
+els.historyBackButton.addEventListener("click", showHomeBoard);
+els.clearHistoryButton.addEventListener("click", clearHistory);
 els.homeButton.addEventListener("click", returnHome);
 els.newRoundButton.addEventListener("click", handleRoundAction);
 els.dialogNewRoundButton.addEventListener("click", () => {
@@ -112,6 +128,7 @@ async function startRound() {
     state.article = data.article;
     state.completed = false;
     state.completedElapsedSeconds = 0;
+    state.savedHistoryRoundId = "";
     startTimer();
     render();
   } catch (error) {
@@ -165,7 +182,9 @@ function returnHome() {
   state.completed = false;
   state.completedElapsedSeconds = 0;
   state.isMoving = false;
+  state.savedHistoryRoundId = "";
   state.hasStarted = false;
+  state.homeView = "home";
   document.body.classList.remove("is-game", "is-loading");
   document.body.classList.add("is-home");
   clearRoundQueryParams();
@@ -220,6 +239,7 @@ async function moveTo(title) {
     if (data.completed) {
       state.completed = true;
       state.completedElapsedSeconds = elapsedSecondsForRound();
+      saveCompletedRoundHistory();
       stopTimer();
       if (isDailyChallengeRound()) {
         renderDailyResult();
@@ -243,6 +263,9 @@ function render() {
 
   els.homeScreen.hidden = state.hasStarted;
   els.gameBoard.hidden = !state.hasStarted;
+  els.homeBoard.hidden = state.homeView !== "home";
+  els.historyScreen.hidden = state.homeView !== "history";
+  els.storageNote.hidden = state.homeView !== "home";
   els.startTitle.textContent = round?.startTitle || "-";
   els.goalTitle.textContent = round?.goalTitle || "-";
   els.stickyGoalTitle.textContent = round?.goalTitle || "-";
@@ -262,9 +285,24 @@ function render() {
   syncArticleLinkState();
   renderPath();
   renderHomeChallenge();
+  renderHistory();
   renderRoundAction();
   renderTimer();
   renderStatus();
+}
+
+function showHistory() {
+  state.homeView = "history";
+  stopTimer();
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showHomeBoard() {
+  state.homeView = "home";
+  render();
+  startHomeClock();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function renderRoundAction() {
@@ -351,6 +389,145 @@ function renderDailyLeaderboard(seed = todaySeed()) {
       return item;
     })
   );
+}
+
+function renderHistory() {
+  const history = readHistory().slice(0, VISIBLE_HISTORY_LIMIT);
+  els.clearHistoryButton.disabled = history.length === 0;
+
+  if (history.length === 0) {
+    const item = document.createElement("li");
+    item.className = "history-empty";
+    item.textContent = "아직 클리어한 기록이 없습니다.";
+    els.historyList.replaceChildren(item);
+    return;
+  }
+
+  els.historyList.replaceChildren(
+    ...history.map((record) => {
+      const item = document.createElement("li");
+      const main = document.createElement("div");
+      const title = document.createElement("strong");
+      const meta = document.createElement("span");
+      const route = document.createElement("p");
+      const path = document.createElement("details");
+      const summary = document.createElement("summary");
+      const pathList = document.createElement("ol");
+
+      main.className = "history-main";
+      title.textContent = record.goalTitle || "목표";
+      meta.textContent = [
+        record.modeLabel || "일반",
+        formatHistoryDate(record.completedAt),
+        `${record.clickCount || 0} 클릭`,
+        formatSeconds(record.elapsedSeconds || 0)
+      ].join(" · ");
+      route.textContent = `${record.startTitle || "-"} → ${record.goalTitle || "-"}`;
+
+      summary.textContent = `${record.pathLength || record.path?.length || 0}개 문서 경로`;
+      pathList.className = "history-path-list";
+      for (const pathTitle of record.path || []) {
+        const pathItem = document.createElement("li");
+        pathItem.textContent = pathTitle;
+        pathList.append(pathItem);
+      }
+      path.append(summary, pathList);
+      main.append(title, meta, route);
+      item.append(main, path);
+      return item;
+    })
+  );
+}
+
+function saveCompletedRoundHistory() {
+  if (!state.round || state.savedHistoryRoundId === state.round.id) return;
+
+  const path = Array.isArray(state.round.path) ? state.round.path : [];
+  const record = {
+    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    roundId: state.round.id,
+    completedAt: new Date().toISOString(),
+    startTitle: state.round.startTitle || path[0] || "",
+    goalTitle: state.round.goalTitle || "",
+    clickCount: state.round.clickCount || 0,
+    elapsedSeconds: state.completedElapsedSeconds || elapsedSecondsForRound(),
+    pathLength: path.length,
+    path,
+    seed: state.round.seed || "",
+    difficultyLabel: state.round.difficulty?.label || "",
+    modeLabel: historyModeLabel(state.round.seed || "")
+  };
+
+  const nextHistory = [
+    record,
+    ...readHistory().filter((item) => item.roundId !== record.roundId)
+  ].slice(0, HISTORY_LIMIT);
+  try {
+    writeHistory(nextHistory);
+    state.savedHistoryRoundId = state.round.id;
+  } catch (error) {
+    console.warn("플레이 히스토리를 저장하지 못했습니다.", error);
+  }
+}
+
+function readHistory() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.map(normalizeHistoryRecord).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeHistory(history) {
+  localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+}
+
+function normalizeHistoryRecord(record) {
+  if (!record || typeof record !== "object") return null;
+  const path = Array.isArray(record.path)
+    ? record.path.map((title) => String(title || "")).filter(Boolean)
+    : [];
+  return {
+    id: String(record.id || record.completedAt || Math.random()),
+    roundId: String(record.roundId || ""),
+    completedAt: String(record.completedAt || ""),
+    startTitle: String(record.startTitle || path[0] || ""),
+    goalTitle: String(record.goalTitle || path[path.length - 1] || ""),
+    clickCount: Number.parseInt(record.clickCount, 10) || 0,
+    elapsedSeconds: Number.parseInt(record.elapsedSeconds, 10) || 0,
+    pathLength: Number.parseInt(record.pathLength, 10) || path.length,
+    path,
+    seed: String(record.seed || ""),
+    difficultyLabel: String(record.difficultyLabel || ""),
+    modeLabel: String(record.modeLabel || historyModeLabel(record.seed || ""))
+  };
+}
+
+function clearHistory() {
+  if (readHistory().length === 0) return;
+  const confirmed = window.confirm("로컬에 저장된 플레이 히스토리를 모두 삭제할까요?");
+  if (!confirmed) return;
+
+  localStorage.removeItem(HISTORY_STORAGE_KEY);
+  renderHistory();
+}
+
+function historyModeLabel(seed) {
+  if (!seed) return "랜덤";
+  if (seed === todaySeed()) return "일일 챌린지";
+  return "시드";
+}
+
+function formatHistoryDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "날짜 없음";
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
 }
 
 async function ensureDailyLeaderboard(seed) {
