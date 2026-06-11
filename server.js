@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   encodeTitle,
@@ -15,7 +15,11 @@ const PORT = Number.parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
-const DATA_DIR = join(ROOT, ".data");
+const DATA_DIR = resolve(
+  process.env.DATA_DIR ||
+  process.env.RAILWAY_VOLUME_MOUNT_PATH ||
+  join(ROOT, ".data")
+);
 const DAILY_SCORES_FILE = join(DATA_DIR, "daily-scores.json");
 const DOCUMENT_TTL_MS = 1000 * 60 * 60 * 6;
 const USER_AGENT =
