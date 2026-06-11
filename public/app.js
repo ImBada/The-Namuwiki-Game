@@ -254,6 +254,7 @@ function render() {
   els.wikiArticle.innerHTML =
     article?.html || '<p class="wiki-placeholder">문서를 불러오는 중입니다.</p>';
 
+  foldLeadingUtilityContent();
   foldDefaultCollapsedBrowseSection();
   normalizeHorizontalFoldingNavboxes();
   normalizeSquareImageGrids();
@@ -577,6 +578,50 @@ function foldDefaultCollapsedBrowseSection() {
   }
 
   moveFootnotesAfterBrowseSection(details, content);
+}
+
+function foldLeadingUtilityContent() {
+  const firstSectionHeading = [...els.wikiArticle.querySelectorAll("h1,h2,h3")].find(
+    (element) => /^1\.\s*\S/.test(element.textContent.replace(/\s+/g, " ").trim())
+  );
+  if (!firstSectionHeading) return;
+
+  const headingBlock = childWithinRoot(firstSectionHeading, els.wikiArticle);
+  if (headingBlock === els.wikiArticle || headingBlock === els.wikiArticle.firstElementChild) return;
+
+  const leadingNodes = [];
+  let node = els.wikiArticle.firstChild;
+  while (node && node !== headingBlock) {
+    leadingNodes.push(node);
+    node = node.nextSibling;
+  }
+
+  const leadingText = leadingNodes
+    .map((leadingNode) => leadingNode.textContent || "")
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (
+    leadingText.length < 400 ||
+    !/(분류|편집 보호|하위 문서|관련 문서|둘러보기)/.test(leadingText)
+  ) {
+    return;
+  }
+
+  const details = document.createElement("details");
+  details.className = "wiki-section-folding wiki-leading-utility-folding";
+
+  const summary = document.createElement("summary");
+  summary.textContent = "상단 틀";
+
+  const content = document.createElement("div");
+  content.className = "wiki-section-folding-content";
+
+  headingBlock.before(details);
+  details.append(summary, content);
+  for (const leadingNode of leadingNodes) {
+    content.append(leadingNode);
+  }
 }
 
 function childWithinRoot(node, root) {

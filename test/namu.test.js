@@ -118,3 +118,21 @@ test("extracts the article body when a NamuWiki content container exists", () =>
   assert.match(articleHtml, /data-game-title="한글"/);
   assert.doesNotMatch(articleHtml, /잡음|footer/);
 });
+
+test("extracts the article body from the current NamuWiki skin content wrapper", () => {
+  const html = `
+    <main>
+      <nav><a href="/w/%EC%B5%9C%EA%B7%BC%20%EB%B3%80%EA%B2%BD">최근 변경</a></nav>
+      <div class="wL2ljWQc _2hRbcvxd">
+        <div>한국 영화에 대해 서술한 문서.</div>
+        <a href="/w/%EC%98%81%ED%99%94">영화</a>
+      </div>
+      <script>window.__NUXT__ = "large payload";</script>
+    </main>
+  `;
+
+  const articleHtml = extractPlayableArticleHtml(html, "한국 영화");
+  assert.match(articleHtml, /한국 영화에 대해 서술한 문서/);
+  assert.match(articleHtml, /data-game-title="영화"/);
+  assert.doesNotMatch(articleHtml, /최근 변경|large payload/);
+});

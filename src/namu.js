@@ -181,6 +181,9 @@ function findArticleContentStart(html) {
   const contentMatch = html.match(/<div\b[^>]*class=(["'])[^"']*\bI5dX7KDP\b[^"']*\1[^>]*>/i);
   if (contentMatch?.index !== undefined) return contentMatch.index;
 
+  const espejoContentMatch = html.match(/<div\b[^>]*class=(["'])[^"']*\bwL2ljWQc\b[^"']*\1[^>]*>/i);
+  if (espejoContentMatch?.index !== undefined) return espejoContentMatch.index;
+
   const paragraphMatch = html.match(/<div\b[^>]*class=(["'])[^"']*\bwiki-paragraph\b[^"']*\1[^>]*>/i);
   return paragraphMatch?.index ?? -1;
 }
