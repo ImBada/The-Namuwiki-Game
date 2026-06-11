@@ -17,6 +17,7 @@ const state = {
 const els = {
   homeScreen: document.querySelector("#homeScreen"),
   startGameButton: document.querySelector("#startGameButton"),
+  seedGameButton: document.querySelector("#seedGameButton"),
   dailyChallengeButton: document.querySelector("#dailyChallengeButton"),
   dailyDateText: document.querySelector("#dailyDateText"),
   dailyTimeLeft: document.querySelector("#dailyTimeLeft"),
@@ -35,7 +36,15 @@ const els = {
   resultKicker: document.querySelector(".result-kicker"),
   resultTitle: document.querySelector("#resultTitle"),
   resultSummary: document.querySelector("#resultSummary"),
+  resultSeedPanel: document.querySelector("#resultSeedPanel"),
+  resultSeedValue: document.querySelector("#resultSeedValue"),
+  copySeedButton: document.querySelector("#copySeedButton"),
+  copySeedStatus: document.querySelector("#copySeedStatus"),
   resultPathList: document.querySelector("#resultPathList"),
+  seedDialog: document.querySelector("#seedDialog"),
+  seedForm: document.querySelector("#seedForm"),
+  seedInput: document.querySelector("#seedInput"),
+  seedStartButton: document.querySelector("#seedStartButton"),
   dailyScoreForm: document.querySelector("#dailyScoreForm"),
   dailyNicknameInput: document.querySelector("#dailyNicknameInput"),
   dailyScoreStatus: document.querySelector("#dailyScoreStatus"),
@@ -54,13 +63,19 @@ const els = {
   pathList: document.querySelector("#pathList")
 };
 
-els.startGameButton.addEventListener("click", startRound);
+els.startGameButton.addEventListener("click", startFreshRound);
+els.seedGameButton.addEventListener("click", openSeedDialog);
 els.dailyChallengeButton.addEventListener("click", startDailyChallenge);
 els.homeButton.addEventListener("click", returnHome);
 els.newRoundButton.addEventListener("click", handleRoundAction);
 els.dialogNewRoundButton.addEventListener("click", () => {
   els.resultDialog.close();
-  startRound();
+  startFreshRound();
+});
+els.copySeedButton.addEventListener("click", copyRoundSeed);
+els.seedForm.addEventListener("submit", startSeededRoundFromDialog);
+els.seedDialog.querySelector("[data-seed-cancel]").addEventListener("click", () => {
+  els.seedDialog.close();
 });
 els.dailyScoreForm.addEventListener("submit", submitDailyScoreFromDialog);
 for (const button of els.nicknameButtons) {
@@ -77,6 +92,11 @@ els.wikiArticle.addEventListener("click", (event) => {
 render();
 renderNickname();
 startHomeClock();
+
+function startFreshRound() {
+  setRoundSeedQuery(createShareSeed());
+  startRound();
+}
 
 async function startRound() {
   stopTimer();
@@ -110,12 +130,31 @@ function startDailyChallenge() {
   startRound();
 }
 
+function openSeedDialog() {
+  els.seedInput.value = "";
+  els.seedDialog.showModal();
+  window.setTimeout(() => els.seedInput.focus(), 0);
+}
+
+function startSeededRoundFromDialog(event) {
+  event.preventDefault();
+  const seed = normalizeSeedInput(els.seedInput.value);
+  if (!seed) {
+    els.seedInput.focus();
+    return;
+  }
+
+  setRoundSeedQuery(seed);
+  els.seedDialog.close();
+  startRound();
+}
+
 function handleRoundAction() {
   if (isDailyChallengeRound()) {
     returnHome();
     return;
   }
-  startRound();
+  startFreshRound();
 }
 
 function returnHome() {
@@ -142,6 +181,14 @@ function clearRoundQueryParams() {
   params.delete("goal");
   const query = params.toString();
   window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+}
+
+function setRoundSeedQuery(seed) {
+  const params = new URLSearchParams(window.location.search);
+  params.set("seed", seed);
+  params.delete("start");
+  params.delete("goal");
+  window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
 }
 
 function roundRequestUrl() {
@@ -346,6 +393,7 @@ function renderResult() {
   els.resultSummary.textContent = `${formatElapsed()} · ${state.round?.clickCount || 0} 클릭 · ${path.length} 문서`;
   els.dailyScoreForm.hidden = true;
   els.dialogNewRoundButton.hidden = false;
+  renderResultSeed();
   els.resultPathList.replaceChildren(
     ...path.map((title) => {
       const item = document.createElement("li");
@@ -365,6 +413,7 @@ function renderDailyResult() {
   els.dailyScoreStatus.textContent = "";
   els.dailyScoreForm.hidden = false;
   els.dialogNewRoundButton.hidden = true;
+  renderResultSeed();
   els.resultPathList.replaceChildren(
     ...path.map((title) => {
       const item = document.createElement("li");
@@ -373,6 +422,25 @@ function renderDailyResult() {
       return item;
     })
   );
+}
+
+function renderResultSeed() {
+  const seed = state.round?.seed || "";
+  els.resultSeedPanel.hidden = !seed;
+  els.resultSeedValue.textContent = seed || "-";
+  els.copySeedStatus.textContent = "";
+}
+
+async function copyRoundSeed() {
+  const seed = state.round?.seed || "";
+  if (!seed) return;
+
+  try {
+    await navigator.clipboard.writeText(seed);
+    els.copySeedStatus.textContent = "시드를 복사했습니다.";
+  } catch {
+    els.copySeedStatus.textContent = "복사하지 못했습니다. 시드를 직접 선택해 주세요.";
+  }
 }
 
 function compareScores(a, b) {
@@ -636,6 +704,19 @@ function normalizeClientTitle(title) {
     .normalize("NFC");
 }
 
+function normalizeSeedInput(seed) {
+  return String(seed || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+}
+
+function createShareSeed() {
+  const timePart = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).slice(2, 10);
+  return `share-${timePart}-${randomPart}`;
+}
+
 function scrollToArticleTop() {
   document.querySelector(".wiki-stage")?.scrollIntoView({
     block: "start",
@@ -738,6 +819,8 @@ function todayDisplayDate() {
 function setLoading(isLoading) {
   document.body.classList.toggle("is-loading", isLoading);
   els.startGameButton.disabled = isLoading;
+  els.seedGameButton.disabled = isLoading;
+  els.seedStartButton.disabled = isLoading;
   els.dailyChallengeButton.disabled = isLoading;
   els.homeButton.disabled = isLoading;
   els.newRoundButton.disabled = isLoading;

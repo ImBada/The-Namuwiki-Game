@@ -30,6 +30,7 @@
             <p id="homeDescription">시작 문서와 목표 문서를 받은 뒤, 실제 문서 본문 링크만 눌러 길을 찾습니다.</p>
             <div class="home-actions">
               <button id="startGameButton" class="primary-button home-start-button" type="button">게임 시작</button>
+              <button id="seedGameButton" class="secondary-button home-seed-button" type="button">시드 입력</button>
             </div>
           </div>
 
@@ -165,6 +166,14 @@
         <span class="result-kicker">목표 도착</span>
         <h2 id="resultTitle">도착</h2>
         <p id="resultSummary"></p>
+        <section id="resultSeedPanel" class="result-seed-panel" aria-labelledby="resultSeedLabel">
+          <div>
+            <span id="resultSeedLabel">시드</span>
+            <strong id="resultSeedValue">-</strong>
+          </div>
+          <button id="copySeedButton" class="secondary-button" type="button">복사</button>
+          <p id="copySeedStatus" aria-live="polite"></p>
+        </section>
         <ol id="resultPathList" class="result-path-list"></ol>
         <form id="dailyScoreForm" class="daily-score-form" hidden>
           <label for="dailyNicknameInput">순위표 닉네임</label>
@@ -177,6 +186,18 @@
         <div class="result-actions">
           <button id="dialogNewRoundButton" class="primary-button" type="button">다음 라운드</button>
         </div>
+      </dialog>
+
+      <dialog id="seedDialog" class="seed-dialog">
+        <form id="seedForm" method="dialog">
+          <h2>시드로 시작</h2>
+          <label for="seedInput">공유받은 시드</label>
+          <input id="seedInput" name="seed" type="text" maxlength="80" autocomplete="off" placeholder="예: share-lx2p9a" />
+          <div class="seed-actions">
+            <button class="secondary-button" value="cancel" type="button" data-seed-cancel>취소</button>
+            <button id="seedStartButton" class="primary-button" type="submit">시작</button>
+          </div>
+        </form>
       </dialog>
     </main>
     <script type="module" src="/app.js"></script>
