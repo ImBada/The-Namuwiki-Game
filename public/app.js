@@ -208,6 +208,8 @@ function render() {
     article?.html || '<p class="wiki-placeholder">문서를 불러오는 중입니다.</p>';
 
   foldDefaultCollapsedBrowseSection();
+  normalizeHorizontalFoldingNavboxes();
+  normalizeSquareImageGrids();
   syncArticleLinkState();
   renderPath();
   renderHomeChallenge();
@@ -544,6 +546,60 @@ function moveFootnotesAfterBrowseSection(details, content) {
     insertAfter.after(footnote);
     insertAfter = footnote;
   }
+}
+
+function normalizeHorizontalFoldingNavboxes() {
+  const candidates = [...els.wikiArticle.querySelectorAll(".wiki-paragraph > div")];
+  for (const candidate of candidates) {
+    const children = [...candidate.children];
+    const tabWrappers = children.filter(isDirectFoldingWrapper);
+    if (tabWrappers.length < 2 || tabWrappers.length > 8) continue;
+
+    candidate.classList.add("wiki-horizontal-folding-navbox");
+    candidate.style.setProperty("--folding-tab-count", String(tabWrappers.length));
+
+    for (const child of children) {
+      child.classList.toggle("wiki-horizontal-folding-heading", !isDirectFoldingWrapper(child));
+    }
+
+    tabWrappers.forEach((wrapper, index) => {
+      const details = wrapper.firstElementChild;
+      wrapper.classList.add("wiki-horizontal-folding-tab");
+      wrapper.style.setProperty("--folding-tab-column", String(index + 1));
+      wrapper.style.setProperty("--folding-tab-index", String(index));
+      details.classList.add("wiki-horizontal-folding-details");
+    });
+  }
+}
+
+function isDirectFoldingWrapper(element) {
+  return (
+    element instanceof HTMLElement &&
+    element.children.length === 1 &&
+    element.firstElementChild?.matches("details.wiki-folding")
+  );
+}
+
+function normalizeSquareImageGrids() {
+  const candidates = [...els.wikiArticle.querySelectorAll(".wiki-paragraph, .wiki-paragraph > div")];
+  for (const candidate of candidates) {
+    const children = [...candidate.children];
+    const cardChildren = children.filter(isSquareImageCard);
+    if (cardChildren.length < 2 || cardChildren.length !== children.length) continue;
+
+    candidate.classList.add("wiki-square-image-grid");
+    for (const child of cardChildren) {
+      child.classList.add("wiki-square-image-card");
+    }
+  }
+}
+
+function isSquareImageCard(element) {
+  return (
+    element instanceof HTMLElement &&
+    element.matches("div") &&
+    Boolean(element.querySelector('img[alt*="정사각형"]'))
+  );
 }
 
 function hasVisited(title) {

@@ -1112,6 +1112,146 @@ body.is-loading .game-wiki-link {
   word-break: keep-all;
 }
 
+.wiki-article .wiki-horizontal-folding-navbox {
+  display: grid;
+  grid-template-columns: repeat(var(--folding-tab-count, 4), minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.wiki-article .wiki-horizontal-folding-navbox > .wiki-horizontal-folding-heading {
+  grid-column: 1 / -1;
+}
+
+.wiki-article .wiki-horizontal-folding-navbox > .wiki-horizontal-folding-heading > div[style*="height"] {
+  margin: 0 auto 8px !important;
+}
+
+.wiki-article .wiki-horizontal-folding-navbox > .wiki-horizontal-folding-heading .wiki-image-align-normal[style*="height:100%"],
+.wiki-article .wiki-horizontal-folding-navbox > .wiki-horizontal-folding-heading .wiki-image-wrapper[style*="height: 100%"],
+.wiki-article .wiki-horizontal-folding-navbox > .wiki-horizontal-folding-heading img[height="100%"] {
+  width: auto;
+  height: 100% !important;
+  max-height: none;
+}
+
+.wiki-article .wiki-horizontal-folding-tab,
+.wiki-article .wiki-horizontal-folding-details {
+  display: contents;
+}
+
+.wiki-article .wiki-horizontal-folding-details > summary {
+  grid-column: var(--folding-tab-column);
+  grid-row: 2;
+  display: block;
+  min-width: 0;
+  border: 0;
+  border-top: 1px solid currentColor;
+  padding: 10px 6px 12px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: 900;
+  line-height: 1.2;
+  list-style: none;
+  text-align: center;
+}
+
+.wiki-article .wiki-horizontal-folding-details > summary::marker,
+.wiki-article .wiki-horizontal-folding-details > summary::-webkit-details-marker {
+  display: none;
+  content: "";
+}
+
+.wiki-article .wiki-horizontal-folding-details > summary::before {
+  content: "";
+}
+
+.wiki-article .wiki-horizontal-folding-details[open] > summary {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.wiki-article .wiki-horizontal-folding-details > div {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  position: relative;
+  min-width: 0;
+  width: calc(var(--folding-tab-count, 4) * 100%);
+}
+
+.wiki-article .wiki-horizontal-folding-details:not([open]) > div {
+  display: none !important;
+}
+
+.wiki-article .wiki-horizontal-folding-details > div {
+  left: calc(var(--folding-tab-index, 0) * -100%);
+}
+
+.wiki-article .wiki-horizontal-folding-navbox:has(.wiki-horizontal-folding-details[open]) {
+  display: block;
+}
+
+.wiki-article .wiki-horizontal-folding-navbox:has(.wiki-horizontal-folding-details[open]) > .wiki-horizontal-folding-tab,
+.wiki-article .wiki-horizontal-folding-navbox:has(.wiki-horizontal-folding-details[open]) .wiki-horizontal-folding-details {
+  display: block;
+}
+
+.wiki-article .wiki-horizontal-folding-navbox:has(.wiki-horizontal-folding-details[open]) .wiki-horizontal-folding-details > summary {
+  display: block;
+  width: 100%;
+}
+
+.wiki-article .wiki-horizontal-folding-navbox:has(.wiki-horizontal-folding-details[open]) .wiki-horizontal-folding-details > div {
+  left: 0;
+  width: 100%;
+}
+
+.wiki-article .wiki-square-image-grid,
+.wiki-article .wiki-paragraph > div[style*="margin:-5px -10px"]:has(img[alt*="정사각형"]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.wiki-article .wiki-square-image-grid > .wiki-square-image-card,
+.wiki-article .wiki-paragraph > div[style*="margin:-5px -10px"]:has(img[alt*="정사각형"]) > div {
+  flex: 0 1 14.285%;
+  min-width: 92px;
+  max-width: 180px;
+  text-align: center;
+}
+
+.wiki-article .wiki-paragraph > div[style*="margin:-5px -10px"] > div:has([data-dark-style*="color:#eee"]) {
+  display: inline-grid;
+  width: min(180px, 50%);
+  min-height: 96px;
+  align-content: end;
+  justify-content: center;
+  vertical-align: top;
+}
+
+.wiki-article .wiki-square-image-grid .game-wiki-link,
+.wiki-article .wiki-paragraph > div[style*="margin:-5px -10px"]:has(img[alt*="정사각형"]) .game-wiki-link {
+  display: block;
+  border-bottom: 0;
+  color: inherit;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.wiki-article .wiki-square-image-grid .wiki-image-align-normal[style*="width:100%"],
+.wiki-article .wiki-square-image-grid .wiki-image-wrapper[style*="width: 100%"],
+.wiki-article .wiki-paragraph > div[style*="margin:-5px -10px"]:has(img[alt*="정사각형"]) .wiki-image-align-normal[style*="width:100%"],
+.wiki-article .wiki-paragraph > div[style*="margin:-5px -10px"]:has(img[alt*="정사각형"]) .wiki-image-wrapper[style*="width: 100%"] {
+  width: 100% !important;
+}
+
+.wiki-article .wiki-square-image-grid img[width="100%"],
+.wiki-article .wiki-paragraph > div[style*="margin:-5px -10px"]:has(img[alt*="정사각형"]) img[width="100%"] {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .wiki-article td .wiki-image-align-normal,
 .wiki-article th .wiki-image-align-normal {
   max-width: 100%;
