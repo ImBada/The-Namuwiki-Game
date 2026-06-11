@@ -1004,7 +1004,7 @@ body.is-loading .game-wiki-link {
 .wiki-article .wiki-image-align-left {
   display: block;
   float: left;
-  margin: 0 16px 12px 0;
+  margin: 0;
 }
 
 .wiki-article .wiki-image-align-right {
@@ -1138,18 +1138,36 @@ body.is-loading .game-wiki-link {
 }
 
 .wiki-article td .wiki-image-align-normal[style*="height:"][style*="px"],
-.wiki-article th .wiki-image-align-normal[style*="height:"][style*="px"] {
+.wiki-article th .wiki-image-align-normal[style*="height:"][style*="px"],
+.wiki-article td .wiki-image-align-left[style*="height:"][style*="px"],
+.wiki-article th .wiki-image-align-left[style*="height:"][style*="px"],
+.wiki-article td .wiki-image-align-right[style*="height:"][style*="px"],
+.wiki-article th .wiki-image-align-right[style*="height:"][style*="px"],
+.wiki-article td .wiki-image-align-center[style*="height:"][style*="px"],
+.wiki-article th .wiki-image-align-center[style*="height:"][style*="px"] {
   max-height: none;
 }
 
 .wiki-article td .wiki-image-align-normal[style*="height:"][style*="px"] .wiki-image-wrapper[style*="height: 100%"],
-.wiki-article th .wiki-image-align-normal[style*="height:"][style*="px"] .wiki-image-wrapper[style*="height: 100%"] {
+.wiki-article th .wiki-image-align-normal[style*="height:"][style*="px"] .wiki-image-wrapper[style*="height: 100%"],
+.wiki-article td .wiki-image-align-left[style*="height:"][style*="px"] .wiki-image-wrapper[style*="height: 100%"],
+.wiki-article th .wiki-image-align-left[style*="height:"][style*="px"] .wiki-image-wrapper[style*="height: 100%"],
+.wiki-article td .wiki-image-align-right[style*="height:"][style*="px"] .wiki-image-wrapper[style*="height: 100%"],
+.wiki-article th .wiki-image-align-right[style*="height:"][style*="px"] .wiki-image-wrapper[style*="height: 100%"],
+.wiki-article td .wiki-image-align-center[style*="height:"][style*="px"] .wiki-image-wrapper[style*="height: 100%"],
+.wiki-article th .wiki-image-align-center[style*="height:"][style*="px"] .wiki-image-wrapper[style*="height: 100%"] {
   height: inherit !important;
   max-height: inherit;
 }
 
 .wiki-article td .wiki-image-align-normal[style*="height:"][style*="px"] img[height="100%"],
-.wiki-article th .wiki-image-align-normal[style*="height:"][style*="px"] img[height="100%"] {
+.wiki-article th .wiki-image-align-normal[style*="height:"][style*="px"] img[height="100%"],
+.wiki-article td .wiki-image-align-left[style*="height:"][style*="px"] img[height="100%"],
+.wiki-article th .wiki-image-align-left[style*="height:"][style*="px"] img[height="100%"],
+.wiki-article td .wiki-image-align-right[style*="height:"][style*="px"] img[height="100%"],
+.wiki-article th .wiki-image-align-right[style*="height:"][style*="px"] img[height="100%"],
+.wiki-article td .wiki-image-align-center[style*="height:"][style*="px"] img[height="100%"],
+.wiki-article th .wiki-image-align-center[style*="height:"][style*="px"] img[height="100%"] {
   width: auto;
   height: 100% !important;
   max-height: 100%;
