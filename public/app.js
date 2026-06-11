@@ -210,6 +210,7 @@ function render() {
   foldDefaultCollapsedBrowseSection();
   normalizeHorizontalFoldingNavboxes();
   normalizeSquareImageGrids();
+  normalizeCompactLinkGrids();
   syncArticleLinkState();
   renderPath();
   renderHomeChallenge();
@@ -600,6 +601,24 @@ function isSquareImageCard(element) {
     element.matches("div") &&
     Boolean(element.querySelector('img[alt*="정사각형"]'))
   );
+}
+
+function normalizeCompactLinkGrids() {
+  const candidates = [...els.wikiArticle.querySelectorAll(".wiki-horizontal-folding-details .wiki-paragraph")];
+  for (const candidate of candidates) {
+    const children = [...candidate.children];
+    if (children.length < 3 || children.length > 12) continue;
+    if (!children.every(isCompactGridLink)) continue;
+
+    candidate.classList.add("wiki-compact-link-grid");
+    candidate.style.setProperty("--compact-link-count", String(children.length));
+  }
+}
+
+function isCompactGridLink(element) {
+  if (!(element instanceof HTMLElement) || !element.matches("a.game-wiki-link")) return false;
+  const text = element.textContent.replace(/\s+/g, " ").trim();
+  return text.length > 0 && text.length <= 12;
 }
 
 function hasVisited(title) {

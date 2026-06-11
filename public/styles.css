@@ -1252,6 +1252,29 @@ body.is-loading .game-wiki-link {
   height: auto;
 }
 
+.wiki-article .wiki-compact-link-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--compact-link-count, 7), minmax(0, 1fr));
+  align-items: center;
+  justify-items: stretch;
+  width: 100%;
+}
+
+.wiki-article .wiki-compact-link-grid > .game-wiki-link {
+  display: block;
+  min-width: 0;
+  border-bottom: 0;
+  color: inherit;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.wiki-article .wiki-compact-link-grid > .game-wiki-link > div {
+  min-width: 0;
+  width: auto !important;
+}
+
 .wiki-article td .wiki-image-align-normal,
 .wiki-article th .wiki-image-align-normal {
   max-width: 100%;
