@@ -12,7 +12,7 @@ import {
 } from "./src/namu.js";
 
 const PORT = Number.parseInt(process.env.PORT || "3000", 10);
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
 const DOCUMENT_TTL_MS = 1000 * 60 * 60 * 6;
@@ -234,14 +234,19 @@ async function getArticle(title) {
     return cached.article;
   }
 
-  // 핵심 수정: 프록시 서버 및 중간 게이트웨이가 압축(br, gzip)을 하지 못하도록 헤더를 원천 고정합니다.
-  const response = await fetch(`${process.env.NAMU_PROXY_BASE}/article?title=${encodeURIComponent(key)}`, {
-    headers: {
-      "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "accept-encoding": "identity", // 중간 서버들의 압축 처리를 절대 금지하고 원본 텍스트 유지를 강제함
-      "connection": "keep-alive"
-    }
-  });
+  const proxyBase = process.env.NAMU_PROXY_BASE?.replace(/\/+$/, "");
+  const articleUrl = proxyBase
+    ? `${proxyBase}/article?title=${encodeURIComponent(key)}`
+    : makeArticleUrl(key);
+  const headers = proxyBase
+    ? {
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-encoding": "identity",
+        "connection": "keep-alive"
+      }
+    : NAMU_HEADERS;
+
+  const response = await fetch(articleUrl, { headers });
 
   if (!response.ok) {
     if (ALLOW_SYNTHETIC_FALLBACK && response.status === 403) {
@@ -255,7 +260,6 @@ async function getArticle(title) {
     throw httpError(response.status, `Could not fetch article: ${key}`);
   }
 
-  // 인프라 레이어의 강제 압축 여파를 한 번 더 방어하기 위해 바이너리로 수집 후 UTF-8 변환
   const arrayBuffer = await response.arrayBuffer();
   const rawText = Buffer.from(arrayBuffer).toString("utf8");
 
