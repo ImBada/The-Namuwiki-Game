@@ -56,16 +56,18 @@ Optional environment variable:
 - `ALLOW_SYNTHETIC_FALLBACK=1`: allows temporary synthetic articles when an
   upstream request is rejected with 403. This is enabled automatically on Vercel.
 
-Document caching is persistent only when the deployment provides a writable data
-directory. On platforms without durable writes, the app still keeps a bounded
-in-memory cache for the current server process.
+Document caching and generated daily challenge rounds are persistent only when
+the deployment provides a writable data directory. On platforms without durable
+writes, the app still keeps a bounded in-memory document cache for the current
+server process, but a daily challenge may be regenerated after a restart.
 
 ## Deploy to Railway
 
 Railway containers do not keep normal app filesystem writes across redeploys.
-Daily leaderboard data is stored in `daily-scores.json`, and fetched NamuWiki
-documents are cached as Brotli-compressed files in `document-cache/`, so attach
-a Railway Volume and point the app's data directory at the volume mount path:
+Daily challenge rounds are stored in `daily-rounds.json`, leaderboard data is
+stored in `daily-scores.json`, and fetched NamuWiki documents are cached as
+Brotli-compressed files in `document-cache/`, so attach a Railway Volume and
+point the app's data directory at the volume mount path:
 
 1. In Railway, open the service and add a Volume.
 2. Set the volume mount path to `/data`.
@@ -73,10 +75,10 @@ a Railway Volume and point the app's data directory at the volume mount path:
 4. Redeploy the service.
 
 If `DATA_DIR` is not set, the app also checks `RAILWAY_VOLUME_MOUNT_PATH`.
-Without a persistent volume, rankings and document cache files can disappear
-after commits, pushes, redeploys, or service restarts. The document cache keeps
-using a 7-day TTL and defaults to 1000 entries; set `DOCUMENT_CACHE_MAX_ENTRIES`
-to adjust the limit.
+Without a persistent volume, generated daily rounds, rankings, and document
+cache files can disappear after commits, pushes, redeploys, or service
+restarts. The document cache keeps using a 7-day TTL and defaults to 1000
+entries; set `DOCUMENT_CACHE_MAX_ENTRIES` to adjust the limit.
 
 ## Notes
 

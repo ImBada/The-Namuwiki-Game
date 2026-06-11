@@ -27,6 +27,7 @@ const DOCUMENT_CACHE_DIR = resolve(
   process.env.DOCUMENT_CACHE_DIR ||
   join(DATA_DIR, "document-cache")
 );
+const DAILY_ROUNDS_FILE = join(DATA_DIR, "daily-rounds.json");
 const compressCachePayload = promisify(brotliCompress);
 const decompressCachePayload = promisify(brotliDecompress);
 const USER_AGENT =
@@ -46,6 +47,8 @@ const ALLOW_SYNTHETIC_FALLBACK =
   process.env.ALLOW_SYNTHETIC_FALLBACK === "1" || process.env.VERCEL === "1";
 
 const documentCache = new Map();
+const dailyRoundCache = new Map();
+let dailyRoundWriteQueue = Promise.resolve();
 
 const curatedFallbackTitles = [
   "대한민국", "서울특별시", "인터넷", "게임", "컴퓨터", "한글", "위키", "과학",
@@ -67,6 +70,11 @@ export async function createRound(options = {}) {
   const requestedStartTitle = normalizeTitle(options.startTitle);
   const requestedGoalTitle = normalizeTitle(options.goalTitle);
   const seed = normalizeRoundSeed(options.seed);
+  const dailySeed = normalizeDailySeed(seed);
+  if (dailySeed && !requestedStartTitle && !requestedGoalTitle) {
+    return createPersistedDailyRound(dailySeed);
+  }
+
   const startArticle = requestedStartTitle
     ? await getArticle(requestedStartTitle)
     : seed
@@ -125,6 +133,106 @@ export async function createRound(options = {}) {
     article: startArticle,
     goal: compactArticle(goalArticle)
   };
+}
+
+async function createPersistedDailyRound(seed) {
+  const storedRound = await getOrCreateDailyRound(seed);
+  return createRound({
+    startTitle: storedRound.startTitle,
+    goalTitle: storedRound.goalTitle,
+    seed
+  });
+}
+
+async function getOrCreateDailyRound(seed) {
+  const cachedRound = dailyRoundCache.get(seed);
+  if (cachedRound) return cachedRound;
+
+  const store = await readDailyRoundStore();
+  const existingRound = normalizeStoredDailyRound(seed, store[seed]);
+  if (existingRound) {
+    dailyRoundCache.set(seed, existingRound);
+    return existingRound;
+  }
+
+  return queueDailyRoundWrite(async () => {
+    const queuedCachedRound = dailyRoundCache.get(seed);
+    if (queuedCachedRound) return queuedCachedRound;
+
+    const latestStore = await readDailyRoundStore();
+    const latestRound = normalizeStoredDailyRound(seed, latestStore[seed]);
+    if (latestRound) {
+      dailyRoundCache.set(seed, latestRound);
+      return latestRound;
+    }
+
+    const startArticle = await pickArticleCandidate({
+      role: "start",
+      exceptTitles: [],
+      minLinks: 12
+    });
+    const goalArticle = await pickArticleCandidate({
+      role: "goal",
+      exceptTitles: [startArticle.title],
+      minLinks: 4
+    });
+    const dailyRound = {
+      seed,
+      startTitle: startArticle.title,
+      goalTitle: goalArticle.title,
+      createdAt: new Date().toISOString()
+    };
+
+    latestStore[seed] = dailyRound;
+    dailyRoundCache.set(seed, dailyRound);
+    try {
+      await writeDailyRoundStore(pruneDailyRoundStore(latestStore));
+    } catch (error) {
+      console.warn(`Could not write daily round store to ${DAILY_ROUNDS_FILE}: ${error.message}`);
+    }
+    return dailyRound;
+  });
+}
+
+function queueDailyRoundWrite(task) {
+  dailyRoundWriteQueue = dailyRoundWriteQueue.then(task, task);
+  return dailyRoundWriteQueue;
+}
+
+async function readDailyRoundStore() {
+  try {
+    return JSON.parse(await readFile(DAILY_ROUNDS_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+async function writeDailyRoundStore(store) {
+  await mkdir(DATA_DIR, { recursive: true });
+  await writeFile(DAILY_ROUNDS_FILE, `${JSON.stringify(store, null, 2)}\n`);
+}
+
+function normalizeStoredDailyRound(seed, round) {
+  const startTitle = normalizeTitle(round?.startTitle);
+  const goalTitle = normalizeTitle(round?.goalTitle);
+  if (!startTitle || !goalTitle || sameTitle(startTitle, goalTitle)) return null;
+
+  return {
+    seed,
+    startTitle,
+    goalTitle,
+    createdAt: String(round?.createdAt || "")
+  };
+}
+
+function pruneDailyRoundStore(store) {
+  const entries = Object.entries(store || {})
+    .map(([seed, round]) => [normalizeDailySeed(seed), normalizeStoredDailyRound(seed, round)])
+    .filter(([normalizedSeed, round]) => normalizedSeed && round)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, 60);
+
+  return Object.fromEntries(entries);
 }
 
 export async function handleClick(body) {
@@ -714,6 +822,11 @@ export function normalizeRoundSeed(seed) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80);
+}
+
+function normalizeDailySeed(seed) {
+  const normalized = normalizeRoundSeed(seed);
+  return /^daily-\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
 }
 
 function shuffled(values) {

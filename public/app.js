@@ -1,5 +1,4 @@
 import {
-  createShareSeed,
   escapeHtml,
   fetchJson,
   formatDuration,
@@ -127,7 +126,7 @@ renderNickname();
 startHomeClock();
 
 function startFreshRound() {
-  setRoundSeedQuery(createShareSeed());
+  clearRoundQueryParams();
   startRound();
 }
 
