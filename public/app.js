@@ -1,3 +1,20 @@
+import {
+  createShareSeed,
+  escapeHtml,
+  fetchJson,
+  formatDuration,
+  formatSeconds,
+  normalizeClientTitle,
+  normalizeSeedInput,
+  secondsUntilNextDailyChallenge,
+  todayDisplayDate,
+  todaySeed
+} from "./client-utils.js";
+import {
+  normalizeWikiArticleDom,
+  syncArticleLinkState as syncWikiArticleLinkState
+} from "./wiki-dom.js";
+
 const HISTORY_STORAGE_KEY = "namuwiki-game:play-history";
 const HISTORY_LIMIT = 50;
 const VISIBLE_HISTORY_LIMIT = 30;
@@ -277,11 +294,7 @@ function render() {
   els.wikiArticle.innerHTML =
     article?.html || '<p class="wiki-placeholder">문서를 불러오는 중입니다.</p>';
 
-  foldLeadingUtilityContent();
-  foldDefaultCollapsedBrowseSection();
-  normalizeHorizontalFoldingNavboxes();
-  normalizeSquareImageGrids();
-  normalizeCompactLinkGrids();
+  normalizeWikiArticleDom(els.wikiArticle);
   syncArticleLinkState();
   renderPath();
   renderHomeChallenge();
@@ -717,198 +730,10 @@ function getCookie(name) {
 }
 
 function syncArticleLinkState() {
-  const links = els.wikiArticle.querySelectorAll("[data-game-title]");
-  for (const link of links) {
-    const visited = hasVisited(link.dataset.gameTitle);
-    link.classList.toggle("is-visited", visited);
-    link.setAttribute("aria-disabled", String(state.isMoving));
-  }
-}
-
-function foldDefaultCollapsedBrowseSection() {
-  const heading = [...els.wikiArticle.querySelectorAll("h1,h2,h3,h4,h5,h6")].find(
-    (element) => /^20\.\s*둘러보기/.test(element.textContent.trim())
-  );
-  if (!heading || heading.closest(".wiki-section-folding")) return;
-
-  const level = Number(heading.tagName.slice(1));
-  const contentRoot = heading.closest(".I5dX7KDP") || els.wikiArticle;
-  const headingBlock = childWithinRoot(heading, contentRoot);
-  if (headingBlock === contentRoot) return;
-  const details = document.createElement("details");
-  details.className = "wiki-section-folding wiki-section-folding-browse";
-
-  const summary = document.createElement("summary");
-  const content = document.createElement("div");
-  content.className = "wiki-section-folding-content";
-
-  headingBlock.before(details);
-  summary.append(headingBlock);
-  details.append(summary, content);
-
-  let node = details.nextSibling;
-  while (node) {
-    const next = node.nextSibling;
-    if (isBrowseSectionBoundary(node, level)) break;
-    content.append(node);
-    node = next;
-  }
-
-  moveFootnotesAfterBrowseSection(details, content);
-}
-
-function foldLeadingUtilityContent() {
-  const firstSectionHeading = [...els.wikiArticle.querySelectorAll("h1,h2,h3")].find(
-    (element) => /^1\.\s*\S/.test(element.textContent.replace(/\s+/g, " ").trim())
-  );
-  if (!firstSectionHeading) return;
-
-  const headingBlock = childWithinRoot(firstSectionHeading, els.wikiArticle);
-  if (headingBlock === els.wikiArticle || headingBlock === els.wikiArticle.firstElementChild) return;
-
-  const leadingNodes = [];
-  let node = els.wikiArticle.firstChild;
-  while (node && node !== headingBlock) {
-    leadingNodes.push(node);
-    node = node.nextSibling;
-  }
-
-  const leadingText = leadingNodes
-    .map((leadingNode) => leadingNode.textContent || "")
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (
-    leadingText.length < 400 ||
-    !/(분류|편집 보호|하위 문서|관련 문서|둘러보기)/.test(leadingText)
-  ) {
-    return;
-  }
-
-  const details = document.createElement("details");
-  details.className = "wiki-section-folding wiki-leading-utility-folding";
-
-  const summary = document.createElement("summary");
-  summary.textContent = "상단 틀";
-
-  const content = document.createElement("div");
-  content.className = "wiki-section-folding-content";
-
-  headingBlock.before(details);
-  details.append(summary, content);
-  for (const leadingNode of leadingNodes) {
-    content.append(leadingNode);
-  }
-}
-
-function childWithinRoot(node, root) {
-  let child = node;
-  while (child.parentElement && child.parentElement !== root) {
-    child = child.parentElement;
-  }
-  return child;
-}
-
-function containsHeadingAtOrAboveLevel(node, level) {
-  if (!(node instanceof HTMLElement)) return false;
-  const headings = node.matches("h1,h2,h3,h4,h5,h6")
-    ? [node]
-    : [...node.querySelectorAll("h1,h2,h3,h4,h5,h6")];
-  return headings.some((heading) => Number(heading.tagName.slice(1)) <= level);
-}
-
-function isBrowseSectionBoundary(node, level) {
-  if (!(node instanceof HTMLElement)) return false;
-  if (containsHeadingAtOrAboveLevel(node, level)) return true;
-  return looksLikeMainFootnoteBlock(node);
-}
-
-function looksLikeMainFootnoteBlock(node) {
-  if (!(node instanceof HTMLElement)) return false;
-  const text = node.textContent.replace(/\s+/g, " ").trim();
-  return /^\[\d+\]\s*\S/.test(text);
-}
-
-function moveFootnotesAfterBrowseSection(details, content) {
-  let insertAfter = details;
-  const footnotes = [...content.querySelectorAll(".wiki-macro-footnote")];
-  for (const footnote of footnotes) {
-    if (!content.contains(footnote)) continue;
-    insertAfter.after(footnote);
-    insertAfter = footnote;
-  }
-}
-
-function normalizeHorizontalFoldingNavboxes() {
-  const candidates = [...els.wikiArticle.querySelectorAll(".wiki-paragraph > div")];
-  for (const candidate of candidates) {
-    const children = [...candidate.children];
-    const tabWrappers = children.filter(isDirectFoldingWrapper);
-    if (tabWrappers.length < 2 || tabWrappers.length > 8) continue;
-
-    candidate.classList.add("wiki-horizontal-folding-navbox");
-    candidate.style.setProperty("--folding-tab-count", String(tabWrappers.length));
-
-    for (const child of children) {
-      child.classList.toggle("wiki-horizontal-folding-heading", !isDirectFoldingWrapper(child));
-    }
-
-    tabWrappers.forEach((wrapper, index) => {
-      const details = wrapper.firstElementChild;
-      wrapper.classList.add("wiki-horizontal-folding-tab");
-      wrapper.style.setProperty("--folding-tab-column", String(index + 1));
-      wrapper.style.setProperty("--folding-tab-index", String(index));
-      details.classList.add("wiki-horizontal-folding-details");
-    });
-  }
-}
-
-function isDirectFoldingWrapper(element) {
-  return (
-    element instanceof HTMLElement &&
-    element.children.length === 1 &&
-    element.firstElementChild?.matches("details.wiki-folding")
-  );
-}
-
-function normalizeSquareImageGrids() {
-  const candidates = [...els.wikiArticle.querySelectorAll(".wiki-paragraph, .wiki-paragraph > div")];
-  for (const candidate of candidates) {
-    const children = [...candidate.children];
-    const cardChildren = children.filter(isSquareImageCard);
-    if (cardChildren.length < 2 || cardChildren.length !== children.length) continue;
-
-    candidate.classList.add("wiki-square-image-grid");
-    for (const child of cardChildren) {
-      child.classList.add("wiki-square-image-card");
-    }
-  }
-}
-
-function isSquareImageCard(element) {
-  return (
-    element instanceof HTMLElement &&
-    element.matches("div") &&
-    Boolean(element.querySelector('img[alt*="정사각형"]'))
-  );
-}
-
-function normalizeCompactLinkGrids() {
-  const candidates = [...els.wikiArticle.querySelectorAll(".wiki-horizontal-folding-details .wiki-paragraph")];
-  for (const candidate of candidates) {
-    const children = [...candidate.children];
-    if (children.length < 3 || children.length > 12) continue;
-    if (!children.every(isCompactGridLink)) continue;
-
-    candidate.classList.add("wiki-compact-link-grid");
-    candidate.style.setProperty("--compact-link-count", String(children.length));
-  }
-}
-
-function isCompactGridLink(element) {
-  if (!(element instanceof HTMLElement) || !element.matches("a.game-wiki-link")) return false;
-  const text = element.textContent.replace(/\s+/g, " ").trim();
-  return text.length > 0 && text.length <= 12;
+  syncWikiArticleLinkState(els.wikiArticle, {
+    isMoving: state.isMoving,
+    hasVisited
+  });
 }
 
 function hasVisited(title) {
@@ -916,27 +741,6 @@ function hasVisited(title) {
   return (state.round?.path || []).some(
     (pathTitle) => normalizeClientTitle(pathTitle) === normalized
   );
-}
-
-function normalizeClientTitle(title) {
-  return String(title || "")
-    .replace(/\s+/g, " ")
-    .replace(/_/g, " ")
-    .trim()
-    .normalize("NFC");
-}
-
-function normalizeSeedInput(seed) {
-  return String(seed || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-}
-
-function createShareSeed() {
-  const timePart = Date.now().toString(36);
-  const randomPart = Math.random().toString(36).slice(2, 10);
-  return `share-${timePart}-${randomPart}`;
 }
 
 function scrollToArticleTop() {
@@ -993,51 +797,6 @@ function elapsedSecondsForRound() {
   );
 }
 
-function formatSeconds(totalSeconds) {
-  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
-  const seconds = String(totalSeconds % 60).padStart(2, "0");
-  return `${minutes}:${seconds}`;
-}
-
-function formatDuration(totalSeconds) {
-  const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
-  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
-  const seconds = String(totalSeconds % 60).padStart(2, "0");
-  return `${hours}:${minutes}:${seconds}`;
-}
-
-function secondsUntilNextDailyChallenge() {
-  const now = new Date();
-  const kstNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-  const nextMidnightKst = new Date(kstNow);
-  nextMidnightKst.setHours(24, 0, 0, 0);
-  return Math.max(0, Math.ceil((nextMidnightKst - kstNow) / 1000));
-}
-
-function todaySeed() {
-  return `daily-${todayDateKey()}`;
-}
-
-function todayDateKey() {
-  const parts = new Intl.DateTimeFormat("en", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
-function todayDisplayDate() {
-  return new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "long",
-    day: "numeric"
-  }).format(new Date());
-}
-
 function setLoading(isLoading) {
   document.body.classList.toggle("is-loading", isLoading);
   els.startGameButton.disabled = isLoading;
@@ -1070,26 +829,4 @@ function renderStatus(isLoading = false) {
 function renderError(error) {
   els.articleTitle.textContent = "오류";
   els.wikiArticle.innerHTML = `<p class="wiki-placeholder">${escapeHtml(error.message)}</p>`;
-}
-
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-async function fetchJson(url, options) {
-  const response = await fetch(url, options);
-  const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) {
-    throw new Error("API가 JSON 대신 HTML을 반환했습니다. Vercel API 라우팅을 확인하세요.");
-  }
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.error || "요청을 처리하지 못했습니다.");
-  }
-  return payload;
 }

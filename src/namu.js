@@ -117,7 +117,6 @@ export function isPlayableArticleTitle(title, currentTitle = "") {
 }
 
 export function sanitizeArticleHtml(html, currentTitle = "") {
-  // String(html || "") 뒤의 세미콜론(;)을 마침표(.)로 수정하여 체이닝을 정상 연결했습니다.
   let sanitized = String(html || "")
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -149,7 +148,6 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
     .replace(/\shref=["']\/([^"']+)["']/gi, ' href="https://namu.wiki/$1"')
     .replace(/\[편집\]/g, "");
 
-  // 이미지 지연 로딩 처리 레이어
   sanitized = sanitized.replace(/<img\b([^>]*?)>/gi, (imgTag) => {
     const dataSrcMatch = imgTag.match(/data-src=(["'])([^"']+)\1/i);
     if (dataSrcMatch) {
