@@ -1,0 +1,7 @@
+.git
+.DS_Store
+docs
+proxy-server/node_modules
+proxy-server/package-lock.json
+node_modules
+npm-debug.log
