@@ -70,6 +70,8 @@ const els = {
   copySeedButton: document.querySelector("#copySeedButton"),
   copySeedStatus: document.querySelector("#copySeedStatus"),
   resultPathList: document.querySelector("#resultPathList"),
+  shareResultButton: document.querySelector("#shareResultButton"),
+  shareResultStatus: document.querySelector("#shareResultStatus"),
   seedDialog: document.querySelector("#seedDialog"),
   seedForm: document.querySelector("#seedForm"),
   seedInput: document.querySelector("#seedInput"),
@@ -105,6 +107,7 @@ els.dialogNewRoundButton.addEventListener("click", () => {
   startFreshRound();
 });
 els.copySeedButton.addEventListener("click", copyRoundSeed);
+els.shareResultButton.addEventListener("click", shareCurrentResult);
 els.seedForm.addEventListener("submit", startSeededRoundFromDialog);
 els.seedDialog.querySelector("[data-seed-cancel]").addEventListener("click", () => {
   els.seedDialog.close();
@@ -453,6 +456,7 @@ function renderHistory() {
       const path = document.createElement("details");
       const summary = document.createElement("summary");
       const pathList = document.createElement("ol");
+      const shareButton = document.createElement("button");
 
       main.className = "history-main";
       title.textContent = record.goalTitle || "목표";
@@ -472,8 +476,15 @@ function renderHistory() {
         pathList.append(pathItem);
       }
       path.append(summary, pathList);
+      shareButton.className = "secondary-button history-share-button";
+      shareButton.type = "button";
+      shareButton.textContent = "X 공유";
+      shareButton.title = `${record.goalTitle || "클리어 기록"} 공유`;
+      shareButton.addEventListener("click", () => {
+        shareRecordToTwitter(record, { button: shareButton });
+      });
       main.append(title, meta, route);
-      item.append(main, path);
+      item.append(main, path, shareButton);
       return item;
     })
   );
@@ -616,6 +627,7 @@ function renderResult() {
   els.resultKicker.textContent = "목표 도착";
   els.resultTitle.textContent = state.round?.goalTitle || "도착";
   els.resultSummary.textContent = `${formatElapsed()} · ${state.round?.clickCount || 0} 클릭 · ${path.length} 문서`;
+  els.shareResultStatus.textContent = "";
   els.dailyScoreForm.hidden = true;
   els.dialogNewRoundButton.hidden = false;
   renderResultSeed();
@@ -634,6 +646,7 @@ function renderDailyResult() {
   els.resultKicker.textContent = "일일 챌린지 완료";
   els.resultTitle.textContent = "기록 등록";
   els.resultSummary.textContent = `${formatElapsed()} · ${state.round?.clickCount || 0} 클릭 · ${path.length} 문서`;
+  els.shareResultStatus.textContent = "";
   els.dailyNicknameInput.value = getNickname();
   els.dailyScoreStatus.textContent = "";
   els.dailyScoreForm.hidden = false;
@@ -666,6 +679,379 @@ async function copyRoundSeed() {
   } catch {
     els.copySeedStatus.textContent = "복사하지 못했습니다. 시드를 직접 선택해 주세요.";
   }
+}
+
+async function shareCurrentResult() {
+  const record = currentResultRecord();
+  if (!record) return;
+  await shareRecordToTwitter(record, {
+    button: els.shareResultButton,
+    statusElement: els.shareResultStatus
+  });
+}
+
+function currentResultRecord() {
+  if (!state.round) return null;
+  const path = Array.isArray(state.round.path) ? state.round.path : [];
+  return {
+    id: state.round.id || "current",
+    completedAt: new Date().toISOString(),
+    startTitle: state.round.startTitle || path[0] || "",
+    goalTitle: state.round.goalTitle || path[path.length - 1] || "",
+    clickCount: state.round.clickCount || 0,
+    elapsedSeconds: state.completedElapsedSeconds || elapsedSecondsForRound(),
+    pathLength: path.length,
+    path,
+    seed: state.round.seed || "",
+    difficultyLabel: state.round.difficulty?.label || "",
+    modeLabel: historyModeLabel(state.round.seed || "")
+  };
+}
+
+async function shareRecordToTwitter(record, options = {}) {
+  const button = options.button;
+  const statusElement = options.statusElement;
+  const normalizedRecord = normalizeHistoryRecord(record);
+  if (!normalizedRecord) return;
+
+  const originalText = button?.textContent || "";
+  setShareStatus(statusElement, "공유 이미지를 만드는 중입니다.");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "준비 중";
+  }
+
+  try {
+    const blob = await createShareImageBlob(normalizedRecord);
+    const shareText = shareTextForRecord(normalizedRecord);
+    const shareUrl = shareUrlForRecord(normalizedRecord);
+
+    if (canCopyImageToClipboard()) {
+      await copyImageToClipboard(blob);
+      openTwitterIntent(shareText, shareUrl);
+      setShareStatus(statusElement, "이미지를 클립보드에 복사하고 X 작성창을 열었습니다.");
+      return;
+    }
+
+    downloadBlob(blob, shareImageFilename(normalizedRecord));
+    openTwitterIntent(shareText, shareUrl);
+    setShareStatus(statusElement, "이미지를 다운로드하고 X 작성창을 열었습니다.");
+  } catch (error) {
+    console.warn("공유 이미지를 만들지 못했습니다.", error);
+    openTwitterIntent(shareTextForRecord(normalizedRecord), shareUrlForRecord(normalizedRecord));
+    setShareStatus(statusElement, "이미지는 만들지 못했지만 X 작성창을 열었습니다.");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+}
+
+function setShareStatus(statusElement, message) {
+  if (statusElement) statusElement.textContent = message;
+}
+
+function shareTextForRecord(record) {
+  const route = shareRouteText(record);
+  const mode = record.modeLabel || historyModeLabel(record.seed || "");
+  return `나무위키 게임 ${mode} 클리어!\n${route}\n${record.clickCount || 0} 클릭 · ${formatSeconds(record.elapsedSeconds || 0)}\n`;
+}
+
+function shareRouteText(record) {
+  const path = Array.isArray(record.path) && record.path.length > 0
+    ? record.path
+    : [record.startTitle || "-", record.goalTitle || "-"];
+  return compactPathLabel(path);
+}
+
+function shareUrlForRecord(record) {
+  const url = new URL(window.location.origin || window.location.href);
+  url.pathname = "/";
+  url.search = "";
+  if (record.seed) url.searchParams.set("seed", record.seed);
+  return url.toString();
+}
+
+function shareImageFilename(record) {
+  const safeGoal = (record.goalTitle || "result")
+    .replace(/[\\/:*?"<>|]/g, "")
+    .replace(/\s+/g, "-")
+    .slice(0, 36);
+  return `namuwiki-game-${safeGoal || "result"}.png`;
+}
+
+function openTwitterIntent(text, url) {
+  const params = new URLSearchParams({ text, url });
+  window.open(`https://twitter.com/intent/tweet?${params}`, "_blank", "noopener,noreferrer");
+}
+
+function canCopyImageToClipboard() {
+  return Boolean(window.ClipboardItem && navigator.clipboard?.write);
+}
+
+async function copyImageToClipboard(blob) {
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      [blob.type]: blob
+    })
+  ]);
+}
+
+function downloadBlob(blob, filename) {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1200);
+}
+
+function createShareImageBlob(record) {
+  const canvas = document.createElement("canvas");
+  const scale = 2;
+  canvas.width = 1200 * scale;
+  canvas.height = 630 * scale;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(scale, scale);
+  drawShareCard(ctx, record);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("이미지 생성에 실패했습니다."));
+    }, "image/png");
+  });
+}
+
+function drawShareCard(ctx, record) {
+  ctx.fillStyle = "#071312";
+  ctx.fillRect(0, 0, 1200, 630);
+
+  const bgGradient = ctx.createLinearGradient(0, 0, 1200, 630);
+  bgGradient.addColorStop(0, "#12352f");
+  bgGradient.addColorStop(0.45, "#081817");
+  bgGradient.addColorStop(1, "#191d13");
+  ctx.fillStyle = bgGradient;
+  ctx.fillRect(0, 0, 1200, 630);
+
+  ctx.strokeStyle = "rgba(120, 255, 226, 0.18)";
+  ctx.lineWidth = 1;
+  for (let x = 40; x < 1200; x += 58) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, 630);
+    ctx.stroke();
+  }
+  for (let y = 34; y < 630; y += 58) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(1200, y);
+    ctx.stroke();
+  }
+
+  drawRoundedRect(ctx, 70, 58, 1060, 514, 24, "rgba(9, 31, 28, 0.9)", "rgba(120, 255, 226, 0.32)");
+  drawBrandHeader(ctx, record);
+
+  drawRouteTicket(ctx, record);
+
+  const stats = [
+    ["클릭", `${record.clickCount || 0}`],
+    ["시간", formatSeconds(record.elapsedSeconds || 0)],
+    ["문서", `${record.pathLength || record.path.length}`]
+  ];
+  stats.forEach((stat, index) => drawStatBox(ctx, 102 + index * 210, 338, stat[0], stat[1]));
+
+  ctx.fillStyle = "#87fff0";
+  ctx.font = "800 20px Inter, system-ui, sans-serif";
+  ctx.fillText("PATH", 102, 482);
+
+  ctx.fillStyle = "#bad5cd";
+  drawFullPath(ctx, record.path, 102, 512, 955, 18, 3);
+
+  drawShareFooter(ctx, record);
+}
+
+function drawBrandHeader(ctx, record) {
+  drawBadge(ctx, 102, 96, record.modeLabel || "클리어");
+  ctx.fillStyle = "#5fffea";
+  ctx.font = "900 34px Inter, system-ui, sans-serif";
+  ctx.fillText("N", 908, 124);
+  ctx.fillStyle = "#ffcf7a";
+  ctx.font = "800 24px Inter, system-ui, sans-serif";
+  ctx.fillText("나무위키 게임", 950, 123);
+
+  const seedText = record.seed ? `seed: ${record.seed}` : "random round";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
+  ctx.font = "700 16px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  const seedWidth = Math.min(338, Math.ceil(ctx.measureText(seedText).width) + 44);
+  const seedX = 1098 - seedWidth;
+  drawRoundedRect(ctx, seedX, 148, seedWidth, 34, 8, "rgba(255, 255, 255, 0.05)", "rgba(120, 255, 226, 0.16)");
+  drawFittedText(ctx, seedText, seedX + 22, 171, seedWidth - 44);
+}
+
+function drawRouteTicket(ctx, record) {
+  const startTitle = record.startTitle || record.path?.[0] || "-";
+  const goalTitle = record.goalTitle || record.path?.[record.path.length - 1] || "-";
+
+  drawRoundedRect(ctx, 102, 198, 996, 102, 16, "rgba(0, 194, 173, 0.08)", "rgba(120, 255, 226, 0.24)");
+
+  ctx.strokeStyle = "rgba(120, 255, 226, 0.14)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(588, 212);
+  ctx.lineTo(588, 286);
+  ctx.stroke();
+
+  ctx.fillStyle = "#87fff0";
+  ctx.font = "800 15px Inter, system-ui, sans-serif";
+  ctx.fillText("출발", 132, 228);
+  ctx.fillText("도착", 680, 228);
+
+  ctx.fillStyle = "#f8fff9";
+  ctx.font = "900 40px Inter, system-ui, sans-serif";
+  drawFittedText(ctx, startTitle, 132, 270, 380);
+  drawFittedText(ctx, goalTitle, 680, 270, 390);
+
+  ctx.fillStyle = "#ffcf7a";
+  ctx.font = "900 42px Inter, system-ui, sans-serif";
+  drawCenteredFittedText(ctx, "→", 589, 270, 48);
+}
+
+function drawShareFooter(ctx, record) {
+  ctx.strokeStyle = "rgba(120, 255, 226, 0.16)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(102, 562);
+  ctx.lineTo(1098, 562);
+  ctx.stroke();
+}
+
+function drawStatBox(ctx, x, y, label, value) {
+  drawRoundedRect(ctx, x, y, 166, 92, 12, "rgba(255, 255, 255, 0.06)", "rgba(120, 255, 226, 0.22)");
+  ctx.fillStyle = "#95bbb1";
+  ctx.font = "800 18px Inter, system-ui, sans-serif";
+  ctx.fillText(label, x + 20, y + 32);
+  ctx.fillStyle = "#f8fff9";
+  ctx.font = "900 32px Inter, system-ui, sans-serif";
+  drawCenteredFittedText(ctx, value, x + 83, y + 70, 126);
+}
+
+function drawBadge(ctx, x, y, text) {
+  ctx.font = "800 18px Inter, system-ui, sans-serif";
+  const width = Math.min(260, Math.max(112, ctx.measureText(text).width + 34));
+  drawRoundedRect(ctx, x, y, width, 38, 19, "rgba(0, 194, 173, 0.16)", "rgba(0, 194, 173, 0.5)");
+  ctx.fillStyle = "#87fff0";
+  ctx.fillText(text, x + 17, y + 25);
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius, fill, stroke) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, radius);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  if (stroke) {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+}
+
+function drawFittedText(ctx, text, x, y, maxWidth, lineHeight) {
+  const content = String(text || "");
+  if (ctx.measureText(content).width <= maxWidth) {
+    ctx.fillText(content, x, y);
+    return;
+  }
+
+  let next = content;
+  while (next.length > 1 && ctx.measureText(`${next}…`).width > maxWidth) {
+    next = next.slice(0, -1);
+  }
+  ctx.fillText(`${next}…`, x, y);
+}
+
+function drawCenteredFittedText(ctx, text, centerX, y, maxWidth) {
+  const content = String(text || "");
+  if (ctx.measureText(content).width <= maxWidth) {
+    ctx.fillText(content, centerX - ctx.measureText(content).width / 2, y);
+    return;
+  }
+
+  let next = content;
+  while (next.length > 1 && ctx.measureText(`${next}…`).width > maxWidth) {
+    next = next.slice(0, -1);
+  }
+  const fitted = `${next}…`;
+  ctx.fillText(fitted, centerX - ctx.measureText(fitted).width / 2, y);
+}
+
+function drawFullPath(ctx, path, x, y, maxWidth, lineHeight, maxLines) {
+  const items = Array.isArray(path) ? path.filter(Boolean) : [];
+  const tokens = items.length > 0 ? pathTokens(items) : ["-"];
+  let fontSize = 23;
+  let lines = [];
+
+  while (fontSize >= 15) {
+    ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
+    lines = wrapTokens(ctx, tokens, maxWidth);
+    if (lines.length <= maxLines) break;
+    fontSize -= 2;
+  }
+
+  ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
+  const fittedLines = lines.slice(0, maxLines);
+  for (let index = 0; index < fittedLines.length; index += 1) {
+    drawFittedText(ctx, fittedLines[index], x, y + index * lineHeight, maxWidth);
+  }
+}
+
+function pathTokens(items) {
+  return items.flatMap((item, index) => (index === 0 ? [item] : ["→", item]));
+}
+
+function wrapTokens(ctx, tokens, maxWidth) {
+  const lines = [];
+  let line = "";
+
+  for (const token of tokens) {
+    const nextLine = line ? `${line} ${token}` : token;
+    if (line && ctx.measureText(nextLine).width > maxWidth) {
+      lines.push(line);
+      line = token;
+    } else {
+      line = nextLine;
+    }
+  }
+
+  if (line) lines.push(line);
+  return lines;
+}
+
+function drawRightAlignedFittedText(ctx, text, rightX, y, maxWidth) {
+  const content = String(text || "");
+  if (ctx.measureText(content).width <= maxWidth) {
+    ctx.fillText(content, rightX - ctx.measureText(content).width, y);
+    return;
+  }
+
+  let next = content;
+  while (next.length > 1 && ctx.measureText(`…${next}`).width > maxWidth) {
+    next = next.slice(1);
+  }
+  const fitted = `…${next}`;
+  ctx.fillText(fitted, rightX - ctx.measureText(fitted).width, y);
+}
+
+function compactPathLabel(path) {
+  const items = Array.isArray(path) ? path.filter(Boolean) : [];
+  if (items.length <= 5) return items.join(" → ") || "-";
+  return [
+    items[0],
+    items[1],
+    `... ${items.length - 4}개 생략`,
+    items[items.length - 2],
+    items[items.length - 1]
+  ].join(" → ");
 }
 
 function compareScores(a, b) {

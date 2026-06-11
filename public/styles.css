@@ -232,7 +232,7 @@ a:focus-visible {
 
 .history-list > li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
+  grid-template-columns: minmax(0, 1fr) minmax(180px, auto) auto;
   gap: 16px;
   align-items: start;
   min-height: 82px;
@@ -310,6 +310,11 @@ a:focus-visible {
   color: #bad5cd;
   font-size: 13px;
   line-height: 1.35;
+}
+
+.history-share-button {
+  min-height: 42px;
+  white-space: nowrap;
 }
 
 .daily-card,
@@ -1860,8 +1865,17 @@ body.is-loading .game-wiki-link {
 
 .result-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: 20px;
+}
+
+.share-status {
+  min-height: 18px;
+  margin-top: 10px !important;
+  color: #87fff0 !important;
+  font-size: 12px;
 }
 
 .daily-score-form {
@@ -1969,6 +1983,10 @@ body.is-loading .game-wiki-link {
     grid-template-columns: 1fr;
   }
 
+  .history-share-button {
+    width: 100%;
+  }
+
   .status-pill {
     width: 100%;
   }
@@ -1984,8 +2002,13 @@ body.is-loading .game-wiki-link {
   }
 
   .result-seed-panel,
+  .result-actions,
   .seed-actions {
     grid-template-columns: 1fr;
+  }
+
+  .result-actions {
+    display: grid;
   }
 
   .home-copy h2 {
