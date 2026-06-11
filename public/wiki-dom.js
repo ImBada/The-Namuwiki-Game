@@ -4,6 +4,7 @@ export function normalizeWikiArticleDom(root) {
   normalizeHorizontalFoldingNavboxes(root);
   normalizeSquareImageGrids(root);
   normalizeCompactLinkGrids(root);
+  setupAnimatedFolding(root);
 }
 
 export function syncArticleLinkState(root, { isMoving, hasVisited }) {
@@ -199,4 +200,144 @@ function isCompactGridLink(element) {
   if (!(element instanceof HTMLElement) || !element.matches("a.game-wiki-link")) return false;
   const text = element.textContent.replace(/\s+/g, " ").trim();
   return text.length > 0 && text.length <= 12;
+}
+
+function setupAnimatedFolding(root) {
+  const foldings = [
+    ...root.querySelectorAll(
+      "details.wiki-section-folding, details.wiki-folding, details.wiki-macro-toc > details"
+    )
+  ];
+
+  for (const details of foldings) {
+    if (!(details instanceof HTMLDetailsElement) || details.dataset.foldingAnimated === "true") {
+      continue;
+    }
+
+    const summary = details.querySelector(":scope > summary");
+    const content = ensureFoldingAnimationContent(details, summary);
+    if (!summary || !content) continue;
+
+    details.dataset.foldingAnimated = "true";
+    content.classList.add("wiki-folding-animation-content");
+    summary.setAttribute("aria-expanded", String(details.open));
+
+    summary.addEventListener("click", (event) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+      event.preventDefault();
+      toggleFolding(details, summary, content);
+    });
+  }
+}
+
+function ensureFoldingAnimationContent(details, summary) {
+  if (!summary) return null;
+
+  const existingContent = details.querySelector(":scope > .wiki-folding-animation-content");
+  if (existingContent instanceof HTMLElement) return existingContent;
+
+  const directContent = [...details.children].filter((child) => child !== summary);
+  if (directContent.length === 1 && directContent[0] instanceof HTMLElement) {
+    return directContent[0];
+  }
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "wiki-folding-animation-content";
+  let node = summary.nextSibling;
+  while (node) {
+    const next = node.nextSibling;
+    wrapper.append(node);
+    node = next;
+  }
+  details.append(wrapper);
+  return wrapper;
+}
+
+function toggleFolding(details, summary, content) {
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (details.dataset.foldingAnimating === "true") {
+    content.getAnimations().forEach((animation) => animation.cancel());
+  }
+
+  if (details.open) {
+    closeFolding(details, summary, content, prefersReducedMotion);
+    return;
+  }
+
+  openFolding(details, summary, content, prefersReducedMotion);
+}
+
+function openFolding(details, summary, content, prefersReducedMotion) {
+  details.dataset.foldingAnimating = "true";
+  const animationId = nextFoldingAnimationId(details);
+  details.open = true;
+  summary.setAttribute("aria-expanded", "true");
+
+  if (prefersReducedMotion) {
+    finishFoldingAnimation(details, content);
+    return;
+  }
+
+  content.style.maxHeight = "0px";
+  content.style.opacity = "0";
+  content.style.transform = "translateY(-2px)";
+
+  requestAnimationFrame(() => {
+    content.style.maxHeight = `${content.scrollHeight}px`;
+    content.style.opacity = "1";
+    content.style.transform = "translateY(0)";
+  });
+
+  finishAfterTransition(details, content, animationId);
+}
+
+function closeFolding(details, summary, content, prefersReducedMotion) {
+  details.dataset.foldingAnimating = "true";
+  const animationId = nextFoldingAnimationId(details);
+  summary.setAttribute("aria-expanded", "false");
+
+  if (prefersReducedMotion) {
+    details.open = false;
+    finishFoldingAnimation(details, content);
+    return;
+  }
+
+  content.style.maxHeight = `${content.scrollHeight}px`;
+  content.style.opacity = "1";
+  content.style.transform = "translateY(0)";
+
+  requestAnimationFrame(() => {
+    content.style.maxHeight = "0px";
+    content.style.opacity = "0";
+    content.style.transform = "translateY(-2px)";
+  });
+
+  finishAfterTransition(details, content, animationId, () => {
+    details.open = false;
+  });
+}
+
+function nextFoldingAnimationId(details) {
+  const animationId = String(Number(details.dataset.foldingAnimationId || 0) + 1);
+  details.dataset.foldingAnimationId = animationId;
+  return animationId;
+}
+
+function finishAfterTransition(details, content, animationId, callback) {
+  window.setTimeout(() => {
+    if (details.dataset.foldingAnimationId !== animationId) return;
+    callback?.();
+    finishFoldingAnimation(details, content);
+  }, 180);
+}
+
+function finishFoldingAnimation(details, content) {
+  details.dataset.foldingAnimating = "false";
+  if (details.open) {
+    content.style.maxHeight = "";
+    content.style.opacity = "";
+    content.style.transform = "";
+  }
 }

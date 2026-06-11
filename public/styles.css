@@ -1003,6 +1003,15 @@ a:focus-visible {
   margin-top: 14px;
 }
 
+.wiki-article .wiki-folding-animation-content {
+  overflow: hidden;
+  transition:
+    max-height 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+  will-change: max-height, opacity, transform;
+}
+
 .wiki-article p,
 .wiki-article .wiki-paragraph {
   margin: 0.7em 0;
@@ -1312,7 +1321,7 @@ body.is-loading .game-wiki-link {
   width: calc(var(--folding-tab-count, 4) * 100%);
 }
 
-.wiki-article .wiki-horizontal-folding-details:not([open]) > div {
+.wiki-article .wiki-horizontal-folding-details:not([open]) > div:not(.wiki-folding-animation-content) {
   display: none !important;
 }
 
@@ -1337,6 +1346,12 @@ body.is-loading .game-wiki-link {
 .wiki-article .wiki-horizontal-folding-navbox:has(.wiki-horizontal-folding-details[open]) .wiki-horizontal-folding-details > div {
   left: 0;
   width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-article .wiki-folding-animation-content {
+    transition: none;
+  }
 }
 
 .wiki-article .wiki-square-image-grid,
