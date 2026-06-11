@@ -1607,12 +1607,36 @@ body.is-loading .game-wiki-link {
   overflow: hidden;
   border: 1px solid rgba(120, 255, 226, 0.18);
   border-radius: 999px;
-  padding: 7px 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
   background: rgba(255, 255, 255, 0.08);
   color: #bad5cd;
   font-size: 13px;
+}
+
+.path-list button {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  border: 0;
+  padding: 7px 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.path-list button:hover,
+.path-list button:focus-visible {
+  color: #f8fff9;
+}
+
+.path-list li:focus-within {
+  border-color: rgba(0, 194, 173, 0.58);
+  box-shadow: 0 0 0 3px rgba(0, 194, 173, 0.16);
 }
 
 .path-list li:not(:last-child)::after {

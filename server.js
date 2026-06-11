@@ -4,6 +4,7 @@ import {
   createRound,
   estimateDifficulty,
   handleClick,
+  handleRewind,
   normalizeRoundSeed,
   scoreArticleQuality,
   stableSeededOrder
@@ -50,6 +51,11 @@ export async function handleRequest(request, response) {
     if (url.pathname === "/api/click" && request.method === "POST") {
       const body = await readJsonBody(request);
       return sendJson(response, await handleClick(body));
+    }
+
+    if (url.pathname === "/api/rewind" && request.method === "POST") {
+      const body = await readJsonBody(request);
+      return sendJson(response, await handleRewind(body));
     }
 
     return serveStatic(url.pathname, response);

@@ -264,6 +264,31 @@ export async function handleClick(body) {
   };
 }
 
+export async function handleRewind(body) {
+  const round = decodeRoundToken(String(body?.roundId || ""));
+  if (!round) throw httpError(404, "Round not found");
+
+  const index = Number.parseInt(body?.pathIndex, 10);
+  if (!Number.isInteger(index) || index < 0 || index >= round.path.length) {
+    throw httpError(400, "Path item not found");
+  }
+
+  const rewoundPath = round.path.slice(0, index + 1);
+  const currentTitle = rewoundPath[rewoundPath.length - 1];
+  const article = await getArticle(currentTitle);
+
+  round.currentTitle = article.title;
+  round.path = rewoundPath;
+  round.path[round.path.length - 1] = article.title;
+  round.clickCount = Math.max(0, round.path.length - 1);
+
+  return {
+    round: publicRound(round),
+    article,
+    completed: normalizeTitle(article.title) === normalizeTitle(round.goalTitle)
+  };
+}
+
 async function pickRandomTitle() {
   try {
     const response = await fetch("https://namu.wiki/random");

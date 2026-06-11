@@ -273,6 +273,34 @@ async function moveTo(title) {
   }
 }
 
+async function rewindToPathIndex(pathIndex) {
+  if (!state.round || state.isMoving) return;
+  const path = state.round.path || [];
+  if (pathIndex < 0 || pathIndex >= path.length) return;
+
+  state.isMoving = true;
+  setLoading(true);
+  try {
+    const data = await fetchJson("/api/rewind", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roundId: state.round.id, pathIndex })
+    });
+    state.round = data.round;
+    state.article = data.article;
+    state.completed = false;
+    state.completedElapsedSeconds = 0;
+    render();
+    scrollToArticleTop();
+  } catch (error) {
+    renderError(error);
+  } finally {
+    state.isMoving = false;
+    setLoading(false);
+    syncArticleLinkState();
+  }
+}
+
 function render() {
   const round = state.round;
   const article = state.article;
@@ -566,10 +594,17 @@ function renderPath() {
   els.pathList.replaceChildren(
     ...path.map((title, index) => {
       const item = document.createElement("li");
-      item.textContent = title;
+      const button = document.createElement("button");
+
+      button.type = "button";
+      button.textContent = title;
+      button.title = `${title} 문서로 되돌리기`;
+      button.addEventListener("click", () => rewindToPathIndex(index));
+      item.append(button);
       item.title = title;
       if (index === path.length - 1) {
         item.setAttribute("aria-current", "page");
+        button.setAttribute("aria-current", "page");
       }
       return item;
     })
