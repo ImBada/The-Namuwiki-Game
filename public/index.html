@@ -17,6 +17,10 @@
               <p>링크만 타고 목표 문서까지</p>
             </div>
           </div>
+          <button class="nickname-button" type="button" data-nickname-button>
+            <span>닉네임</span>
+            <strong data-nickname-label>익명</strong>
+          </button>
         </header>
 
         <section class="home-board">
@@ -34,13 +38,13 @@
               <div class="daily-heading">
                 <span class="preview-doc-icon" aria-hidden="true">N</span>
                 <div>
-                  <span id="dailySeedLabel">오늘의 시드</span>
+                  <span>오늘의 문제</span>
                   <h3 id="dailyTitle">일일 챌린지</h3>
                 </div>
               </div>
               <div class="daily-meta">
-                <span>Seed</span>
-                <strong id="dailySeedText">-</strong>
+                <span>날짜</span>
+                <strong id="dailyDateText">-</strong>
               </div>
               <div class="daily-countdown">
                 <span>남은 시간</span>
@@ -62,13 +66,17 @@
 
             <section class="leaderboard-card" aria-labelledby="leaderboardTitle">
               <div class="leaderboard-heading">
-                <h3 id="leaderboardTitle">순위표</h3>
+                <h3 id="leaderboardTitle">오늘의 순위표</h3>
                 <span id="leaderboardScope">오늘</span>
               </div>
               <ol id="dailyLeaderboard" class="leaderboard-list"></ol>
             </section>
           </div>
         </section>
+        <p class="storage-note">
+          일일 챌린지를 제외한 모든 플레이 데이터는 브라우저 로컬 저장소에만 기록됩니다.
+          일일 챌린지는 닉네임과 기록만 서버에 저장되며 다음 날 초기화됩니다.
+        </p>
       </section>
 
       <section class="game-board" aria-live="polite">
@@ -81,6 +89,10 @@
             </div>
           </div>
           <div class="top-actions">
+            <button class="nickname-button" type="button" data-nickname-button>
+              <span>닉네임</span>
+              <strong data-nickname-label>익명</strong>
+            </button>
             <span id="roundStatus" class="status-pill">라운드 준비</span>
             <button id="homeButton" class="secondary-button" type="button">메인</button>
             <button id="newRoundButton" class="primary-button" type="button">새 라운드</button>
@@ -115,6 +127,7 @@
             <h2>경로</h2>
             <div class="path-meta">
               <span id="pathCount">0</span>
+              <span class="path-goal-label">목표</span>
               <strong id="pathGoalTitle">-</strong>
             </div>
           </div>
@@ -153,6 +166,14 @@
         <h2 id="resultTitle">도착</h2>
         <p id="resultSummary"></p>
         <ol id="resultPathList" class="result-path-list"></ol>
+        <form id="dailyScoreForm" class="daily-score-form" hidden>
+          <label for="dailyNicknameInput">순위표 닉네임</label>
+          <div>
+            <input id="dailyNicknameInput" name="nickname" type="text" maxlength="20" autocomplete="nickname" />
+            <button class="primary-button" type="submit">기록 등록</button>
+          </div>
+          <p id="dailyScoreStatus"></p>
+        </form>
         <div class="result-actions">
           <button id="dialogNewRoundButton" class="primary-button" type="button">다음 라운드</button>
         </div>

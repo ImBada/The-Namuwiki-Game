@@ -5,7 +5,11 @@ const state = {
   dailyPreview: null,
   dailyPreviewLoading: false,
   dailyPreviewSeed: "",
+  dailyScores: [],
+  dailyScoresLoading: false,
+  dailyScoresSeed: "",
   hasStarted: false,
+  completedElapsedSeconds: 0,
   isMoving: false,
   tick: null
 };
@@ -14,7 +18,7 @@ const els = {
   homeScreen: document.querySelector("#homeScreen"),
   startGameButton: document.querySelector("#startGameButton"),
   dailyChallengeButton: document.querySelector("#dailyChallengeButton"),
-  dailySeedText: document.querySelector("#dailySeedText"),
+  dailyDateText: document.querySelector("#dailyDateText"),
   dailyTimeLeft: document.querySelector("#dailyTimeLeft"),
   dailyStartTitle: document.querySelector("#dailyStartTitle"),
   dailyGoalTitle: document.querySelector("#dailyGoalTitle"),
@@ -22,13 +26,19 @@ const els = {
   leaderboardScope: document.querySelector("#leaderboardScope"),
   dailyLeaderboard: document.querySelector("#dailyLeaderboard"),
   gameBoard: document.querySelector(".game-board"),
+  nicknameButtons: document.querySelectorAll("[data-nickname-button]"),
+  nicknameLabels: document.querySelectorAll("[data-nickname-label]"),
   homeButton: document.querySelector("#homeButton"),
   newRoundButton: document.querySelector("#newRoundButton"),
   dialogNewRoundButton: document.querySelector("#dialogNewRoundButton"),
   resultDialog: document.querySelector("#resultDialog"),
+  resultKicker: document.querySelector(".result-kicker"),
   resultTitle: document.querySelector("#resultTitle"),
   resultSummary: document.querySelector("#resultSummary"),
   resultPathList: document.querySelector("#resultPathList"),
+  dailyScoreForm: document.querySelector("#dailyScoreForm"),
+  dailyNicknameInput: document.querySelector("#dailyNicknameInput"),
+  dailyScoreStatus: document.querySelector("#dailyScoreStatus"),
   roundStatus: document.querySelector("#roundStatus"),
   startTitle: document.querySelector("#startTitle"),
   goalTitle: document.querySelector("#goalTitle"),
@@ -52,6 +62,10 @@ els.dialogNewRoundButton.addEventListener("click", () => {
   els.resultDialog.close();
   startRound();
 });
+els.dailyScoreForm.addEventListener("submit", submitDailyScoreFromDialog);
+for (const button of els.nicknameButtons) {
+  button.addEventListener("click", editNickname);
+}
 els.wikiArticle.addEventListener("click", (event) => {
   const link = event.target.closest("[data-game-title]");
   if (!link) return;
@@ -61,6 +75,7 @@ els.wikiArticle.addEventListener("click", (event) => {
 });
 
 render();
+renderNickname();
 startHomeClock();
 
 async function startRound() {
@@ -76,6 +91,7 @@ async function startRound() {
     state.goal = data.goal;
     state.article = data.article;
     state.completed = false;
+    state.completedElapsedSeconds = 0;
     startTimer();
     render();
   } catch (error) {
@@ -108,6 +124,7 @@ function returnHome() {
   state.goal = null;
   state.article = null;
   state.completed = false;
+  state.completedElapsedSeconds = 0;
   state.isMoving = false;
   state.hasStarted = false;
   document.body.classList.remove("is-game", "is-loading");
@@ -155,9 +172,13 @@ async function moveTo(title) {
 
     if (data.completed) {
       state.completed = true;
+      state.completedElapsedSeconds = elapsedSecondsForRound();
       stopTimer();
-      saveDailyScore();
-      renderResult();
+      if (isDailyChallengeRound()) {
+        renderDailyResult();
+      } else {
+        renderResult();
+      }
       els.resultDialog.showModal();
     }
   } catch (error) {
@@ -178,7 +199,7 @@ function render() {
   els.startTitle.textContent = round?.startTitle || "-";
   els.goalTitle.textContent = round?.goalTitle || "-";
   els.stickyGoalTitle.textContent = round?.goalTitle || "-";
-  els.pathGoalTitle.textContent = round?.goalTitle ? `목표 ${round.goalTitle}` : "-";
+  els.pathGoalTitle.textContent = round?.goalTitle || "-";
   els.clickCount.textContent = String(round?.clickCount || 0);
   els.difficultyLabel.textContent = round?.difficulty?.label || "-";
   els.articleTitle.textContent = article?.title || "라운드를 시작하세요";
@@ -205,13 +226,17 @@ function renderHomeChallenge() {
     state.dailyPreview = null;
     state.dailyPreviewLoading = false;
     state.dailyPreviewSeed = seed;
+    state.dailyScores = [];
+    state.dailyScoresLoading = false;
+    state.dailyScoresSeed = "";
   }
-  els.dailySeedText.textContent = seed;
+  els.dailyDateText.textContent = todayDisplayDate();
   renderDailyCountdown();
   els.leaderboardScope.textContent = todayDisplayDate();
   renderDailyPreview();
   ensureDailyChallengePreview(seed);
   renderDailyLeaderboard(seed);
+  ensureDailyLeaderboard(seed);
 }
 
 function renderDailyPreview() {
@@ -220,10 +245,12 @@ function renderDailyPreview() {
   els.dailyGoalTitle.textContent = preview?.goalTitle || "불러오는 중";
 
   if (preview) {
-    els.dailyPreviewStatus.textContent = `${preview.difficultyLabel || "난이도"} · ${preview.difficultyScore || "-"}점`;
+    els.dailyPreviewStatus.textContent = "";
+    els.dailyPreviewStatus.hidden = true;
     return;
   }
 
+  els.dailyPreviewStatus.hidden = false;
   els.dailyPreviewStatus.textContent = state.dailyPreviewLoading
     ? "오늘의 문제를 준비하고 있습니다."
     : "문제를 불러오지 못했습니다.";
@@ -238,9 +265,7 @@ async function ensureDailyChallengePreview(seed) {
     const data = await fetchJson(`/api/round?seed=${encodeURIComponent(seed)}`);
     state.dailyPreview = {
       startTitle: data.round?.startTitle || "-",
-      goalTitle: data.round?.goalTitle || "-",
-      difficultyLabel: data.round?.difficulty?.label || "",
-      difficultyScore: data.round?.difficulty?.score || ""
+      goalTitle: data.round?.goalTitle || "-"
     };
   } catch {
     state.dailyPreview = null;
@@ -251,11 +276,11 @@ async function ensureDailyChallengePreview(seed) {
 }
 
 function renderDailyLeaderboard(seed = todaySeed()) {
-  const scores = getDailyScores(seed).slice(0, 5);
+  const scores = state.dailyScoresSeed === seed ? state.dailyScores.slice(0, 5) : [];
   if (scores.length === 0) {
     const item = document.createElement("li");
     item.className = "leaderboard-empty";
-    item.textContent = "아직 기록이 없습니다.";
+    item.textContent = state.dailyScoresLoading ? "순위표를 불러오는 중입니다." : "아직 기록이 없습니다.";
     els.dailyLeaderboard.replaceChildren(item);
     return;
   }
@@ -268,13 +293,31 @@ function renderDailyLeaderboard(seed = todaySeed()) {
       const meta = document.createElement("em");
 
       rank.textContent = String(index + 1);
-      title.textContent = `${score.clickCount} 클릭`;
-      meta.textContent = `${formatSeconds(score.elapsedSeconds)} · ${score.pathLength} 문서`;
+      title.textContent = score.nickname || "익명";
+      meta.textContent = `${score.clickCount} 클릭 · ${formatSeconds(score.elapsedSeconds || 0)}`;
 
       item.append(rank, title, meta);
       return item;
     })
   );
+}
+
+async function ensureDailyLeaderboard(seed) {
+  if (state.dailyScoresSeed === seed || state.dailyScoresLoading) return;
+
+  state.dailyScoresLoading = true;
+  renderDailyLeaderboard(seed);
+  try {
+    const data = await fetchJson(`/api/daily-scores?seed=${encodeURIComponent(seed)}`);
+    state.dailyScores = Array.isArray(data.scores) ? data.scores.sort(compareScores) : [];
+    state.dailyScoresSeed = seed;
+  } catch {
+    state.dailyScores = [];
+    state.dailyScoresSeed = seed;
+  } finally {
+    state.dailyScoresLoading = false;
+    renderDailyLeaderboard(seed);
+  }
 }
 
 function renderPath() {
@@ -295,8 +338,11 @@ function renderPath() {
 
 function renderResult() {
   const path = state.round?.path || [];
+  els.resultKicker.textContent = "목표 도착";
   els.resultTitle.textContent = state.round?.goalTitle || "도착";
   els.resultSummary.textContent = `${formatElapsed()} · ${state.round?.clickCount || 0} 클릭 · ${path.length} 문서`;
+  els.dailyScoreForm.hidden = true;
+  els.dialogNewRoundButton.hidden = false;
   els.resultPathList.replaceChildren(
     ...path.map((title) => {
       const item = document.createElement("li");
@@ -307,33 +353,23 @@ function renderResult() {
   );
 }
 
-function saveDailyScore() {
-  if (!state.round?.seed || state.round.seed !== todaySeed()) return;
-
-  const seed = state.round.seed;
-  const elapsedSeconds = elapsedSecondsForRound();
-  const score = {
-    seed,
-    clickCount: state.round.clickCount || 0,
-    elapsedSeconds,
-    pathLength: (state.round.path || []).length,
-    completedAt: new Date().toISOString()
-  };
-  const scores = [...getDailyScores(seed), score]
-    .sort(compareScores)
-    .slice(0, 20);
-
-  localStorage.setItem(scoreStorageKey(seed), JSON.stringify(scores));
-  renderDailyLeaderboard(seed);
-}
-
-function getDailyScores(seed) {
-  try {
-    const scores = JSON.parse(localStorage.getItem(scoreStorageKey(seed)) || "[]");
-    return Array.isArray(scores) ? scores.sort(compareScores) : [];
-  } catch {
-    return [];
-  }
+function renderDailyResult() {
+  const path = state.round?.path || [];
+  els.resultKicker.textContent = "일일 챌린지 완료";
+  els.resultTitle.textContent = "기록 등록";
+  els.resultSummary.textContent = `${formatElapsed()} · ${state.round?.clickCount || 0} 클릭 · ${path.length} 문서`;
+  els.dailyNicknameInput.value = getNickname();
+  els.dailyScoreStatus.textContent = "";
+  els.dailyScoreForm.hidden = false;
+  els.dialogNewRoundButton.hidden = true;
+  els.resultPathList.replaceChildren(
+    ...path.map((title) => {
+      const item = document.createElement("li");
+      item.textContent = title;
+      item.title = title;
+      return item;
+    })
+  );
 }
 
 function compareScores(a, b) {
@@ -344,12 +380,91 @@ function compareScores(a, b) {
   );
 }
 
-function scoreStorageKey(seed) {
-  return `namuwiki-game:daily-scores:${seed}`;
+async function submitDailyScoreFromDialog(event) {
+  event.preventDefault();
+  if (!state.round || !isDailyChallengeRound()) return;
+
+  const nickname = normalizeNickname(els.dailyNicknameInput.value);
+  if (!nickname) {
+    els.dailyScoreStatus.textContent = "닉네임을 입력해 주세요.";
+    els.dailyNicknameInput.focus();
+    return;
+  }
+
+  setNickname(nickname);
+  els.dailyScoreStatus.textContent = "기록을 등록하는 중입니다.";
+  els.dailyScoreForm.querySelector("button").disabled = true;
+
+  try {
+    const data = await fetchJson("/api/daily-scores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        seed: state.round.seed,
+        nickname,
+        clickCount: state.round.clickCount || 0,
+        elapsedSeconds: state.completedElapsedSeconds || elapsedSecondsForRound(),
+        pathLength: (state.round.path || []).length
+      })
+    });
+    state.dailyScores = Array.isArray(data.scores) ? data.scores.sort(compareScores) : [];
+    state.dailyScoresSeed = state.round.seed;
+    renderDailyLeaderboard(state.round.seed);
+    els.resultDialog.close();
+    returnHome();
+  } catch (error) {
+    els.dailyScoreStatus.textContent = error.message;
+  } finally {
+    els.dailyScoreForm.querySelector("button").disabled = false;
+  }
 }
 
 function isDailyChallengeRound() {
   return state.round?.seed === todaySeed();
+}
+
+function editNickname() {
+  const nextName = window.prompt("순위표에 표시할 닉네임을 입력하세요.", getNickname());
+  if (nextName === null) return;
+
+  const nickname = normalizeNickname(nextName);
+  if (!nickname) return;
+
+  setNickname(nickname);
+}
+
+function getNickname() {
+  return getCookie("namuwiki_game_nickname") || localStorage.getItem("namuwiki-game:nickname") || "익명";
+}
+
+function setNickname(nickname) {
+  const normalized = normalizeNickname(nickname) || "익명";
+  localStorage.setItem("namuwiki-game:nickname", normalized);
+  document.cookie = `namuwiki_game_nickname=${encodeURIComponent(normalized)}; Max-Age=31536000; Path=/; SameSite=Lax`;
+  renderNickname();
+}
+
+function renderNickname() {
+  const nickname = getNickname();
+  for (const label of els.nicknameLabels) {
+    label.textContent = nickname;
+  }
+}
+
+function normalizeNickname(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 20);
+}
+
+function getCookie(name) {
+  const prefix = `${name}=`;
+  const cookie = document.cookie
+    .split(";")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(prefix));
+  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : "";
 }
 
 function syncArticleLinkState() {
@@ -490,6 +605,9 @@ function formatElapsed() {
 }
 
 function elapsedSecondsForRound() {
+  if (state.completed && state.completedElapsedSeconds) {
+    return state.completedElapsedSeconds;
+  }
   if (!state.round?.startedAt) return 0;
   return Math.max(
     0,
@@ -536,6 +654,7 @@ function todayDateKey() {
 function todayDisplayDate() {
   return new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
+    year: "numeric",
     month: "long",
     day: "numeric"
   }).format(new Date());

@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
@@ -15,6 +15,8 @@ const PORT = Number.parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
+const DATA_DIR = join(ROOT, ".data");
+const DAILY_SCORES_FILE = join(DATA_DIR, "daily-scores.json");
 const DOCUMENT_TTL_MS = 1000 * 60 * 60 * 6;
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
@@ -33,6 +35,7 @@ const ALLOW_SYNTHETIC_FALLBACK =
   process.env.ALLOW_SYNTHETIC_FALLBACK === "1" || process.env.VERCEL === "1";
 
 const documentCache = new Map();
+let dailyScoreWriteQueue = Promise.resolve();
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -76,6 +79,15 @@ export async function handleRequest(request, response) {
         goalTitle: url.searchParams.get("goal"),
         seed: url.searchParams.get("seed")
       }));
+    }
+
+    if (url.pathname === "/api/daily-scores" && request.method === "GET") {
+      return sendJson(response, await getDailyLeaderboard(url.searchParams.get("seed")));
+    }
+
+    if (url.pathname === "/api/daily-scores" && request.method === "POST") {
+      const body = await readJsonBody(request);
+      return sendJson(response, await submitDailyScore(body), 201);
     }
 
     if (url.pathname === "/api/click" && request.method === "POST") {
@@ -190,6 +202,106 @@ async function handleClick(body) {
     article: nextArticle,
     completed
   };
+}
+
+async function getDailyLeaderboard(seed) {
+  const dailySeed = normalizeDailySeed(seed);
+  if (!dailySeed) throw httpError(400, "Invalid daily challenge seed");
+
+  const store = await readDailyScoreStore();
+  return {
+    seed: dailySeed,
+    scores: normalizeDailyScores(store[dailySeed] || []).slice(0, 20)
+  };
+}
+
+async function submitDailyScore(body) {
+  const seed = normalizeDailySeed(body?.seed);
+  if (!seed || seed !== todaySeed()) {
+    throw httpError(400, "오늘의 일일 챌린지 기록만 등록할 수 있습니다.");
+  }
+
+  const nickname = normalizeNickname(body?.nickname);
+  if (!nickname) throw httpError(400, "닉네임을 입력해 주세요.");
+
+  const score = {
+    id: createHmac("sha256", ROUND_SECRET)
+      .update(`${seed}:${nickname}:${Date.now()}:${Math.random()}`)
+      .digest("base64url")
+      .slice(0, 16),
+    seed,
+    nickname,
+    clickCount: clampInteger(body?.clickCount, 0, 999),
+    elapsedSeconds: clampInteger(body?.elapsedSeconds, 0, 24 * 60 * 60),
+    pathLength: clampInteger(body?.pathLength, 1, 1000),
+    completedAt: new Date().toISOString()
+  };
+
+  const leaderboard = await queueDailyScoreWrite(async () => {
+    const store = await readDailyScoreStore();
+    const todayOnlyStore = { [seed]: normalizeDailyScores(store[seed] || []) };
+    const scores = [...todayOnlyStore[seed], score].sort(compareScores).slice(0, 100);
+    todayOnlyStore[seed] = scores;
+    await writeDailyScoreStore(todayOnlyStore);
+    return scores.slice(0, 20);
+  });
+
+  return { seed, score, scores: leaderboard };
+}
+
+function queueDailyScoreWrite(task) {
+  dailyScoreWriteQueue = dailyScoreWriteQueue.then(task, task);
+  return dailyScoreWriteQueue;
+}
+
+async function readDailyScoreStore() {
+  try {
+    return JSON.parse(await readFile(DAILY_SCORES_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+async function writeDailyScoreStore(store) {
+  await mkdir(DATA_DIR, { recursive: true });
+  await writeFile(DAILY_SCORES_FILE, `${JSON.stringify(store, null, 2)}\n`);
+}
+
+function normalizeDailyScores(scores) {
+  return (Array.isArray(scores) ? scores : [])
+    .map((score) => ({
+      id: String(score.id || ""),
+      seed: normalizeDailySeed(score.seed),
+      nickname: normalizeNickname(score.nickname) || "익명",
+      clickCount: clampInteger(score.clickCount, 0, 999),
+      elapsedSeconds: clampInteger(score.elapsedSeconds, 0, 24 * 60 * 60),
+      pathLength: clampInteger(score.pathLength, 1, 1000),
+      completedAt: String(score.completedAt || "")
+    }))
+    .filter((score) => score.seed)
+    .sort(compareScores);
+}
+
+function compareScores(a, b) {
+  return (
+    (a.clickCount || 0) - (b.clickCount || 0) ||
+    (a.elapsedSeconds || 0) - (b.elapsedSeconds || 0) ||
+    (a.pathLength || 0) - (b.pathLength || 0) ||
+    String(a.completedAt || "").localeCompare(String(b.completedAt || ""))
+  );
+}
+
+function normalizeNickname(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 20);
+}
+
+function clampInteger(value, min, max) {
+  const integer = Number.parseInt(value, 10);
+  if (!Number.isFinite(integer)) return min;
+  return Math.max(min, Math.min(max, integer));
 }
 
 async function pickRandomTitle() {
@@ -706,6 +818,20 @@ export function normalizeRoundSeed(seed) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80);
+}
+
+function normalizeDailySeed(seed) {
+  const normalized = normalizeRoundSeed(seed);
+  return /^daily-\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
+}
+
+function todaySeed() {
+  return `daily-${new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date())}`;
 }
 
 function shuffled(values) {
