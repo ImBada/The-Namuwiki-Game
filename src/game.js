@@ -289,16 +289,19 @@ export async function handleRewind(body) {
   };
 }
 
-async function pickRandomTitle() {
+async function pickRandomArticle() {
   try {
     const response = await fetch("https://namu.wiki/random");
     const article = extractArticle(await response.text(), "");
-    if (article.title && article.links.length > 0) return article.title;
+    if (article.title && article.links.length > 0) {
+      await cacheArticle(article, [article.title]);
+      return article;
+    }
   } catch {
     // Fall through to curated fallback.
   }
 
-  return pickCuratedTitle();
+  return getArticle(pickCuratedTitle());
 }
 
 async function pickArticleCandidate({ role, exceptTitles, minLinks }) {
@@ -307,10 +310,8 @@ async function pickArticleCandidate({ role, exceptTitles, minLinks }) {
 
   for (let attempt = 0; attempt < randomPickAttempts; attempt += 1) {
     try {
-      const title = await pickRandomTitle();
-      if (exceptTitles.some((exceptTitle) => sameTitle(title, exceptTitle))) continue;
-
-      const article = await getArticle(title);
+      const article = await pickRandomArticle();
+      if (exceptTitles.some((exceptTitle) => sameTitle(article.title, exceptTitle))) continue;
       const quality = scoreArticleQuality(article, { minLinks, role });
       if (quality.accepted) return article;
       candidates.push({ article, quality });

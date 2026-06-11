@@ -33,6 +33,7 @@ test("persists daily challenge rounds after the first random generation", async 
   const originalFetch = globalThis.fetch;
   const randomTitles = ["무작위 시작", "무작위 목표"];
   let randomCallCount = 0;
+  let articleCallCount = 0;
 
   globalThis.fetch = async (url) => {
     const href = String(url);
@@ -46,6 +47,7 @@ test("persists daily challenge rounds after the first random generation", async 
 
     const encodedTitle = href.split("/w/")[1] || "";
     const title = decodeURIComponent(encodedTitle);
+    articleCallCount += 1;
     const linkCount = title === "무작위 목표" ? 5 : 12;
     return new Response(articleHtml(title, linkCount), {
       headers: { "Content-Type": "text/html" }
@@ -64,6 +66,7 @@ test("persists daily challenge rounds after the first random generation", async 
     assert.equal(secondRound.round.startTitle, firstRound.round.startTitle);
     assert.equal(secondRound.round.goalTitle, firstRound.round.goalTitle);
     assert.equal(randomCallCount, 2);
+    assert.equal(articleCallCount, 0);
   } finally {
     globalThis.fetch = originalFetch;
   }
