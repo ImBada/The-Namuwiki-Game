@@ -1,4 +1,6 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import {
   encodeTitle,
   extractArticle,
@@ -8,7 +10,21 @@ import {
 } from "./namu.js";
 import { httpError } from "./http.js";
 
-const DOCUMENT_TTL_MS = 1000 * 60 * 60 * 6;
+const DOCUMENT_CACHE_TTL_DAYS = 7;
+const DOCUMENT_TTL_MS = 1000 * 60 * 60 * 24 * DOCUMENT_CACHE_TTL_DAYS;
+const DOCUMENT_CACHE_MAX_ENTRIES = Number.parseInt(
+  process.env.DOCUMENT_CACHE_MAX_ENTRIES || "1000",
+  10
+);
+const DATA_DIR = resolve(
+  process.env.DATA_DIR ||
+  process.env.RAILWAY_VOLUME_MOUNT_PATH ||
+  join(process.cwd(), ".data")
+);
+const DOCUMENT_CACHE_DIR = resolve(
+  process.env.DOCUMENT_CACHE_DIR ||
+  join(DATA_DIR, "document-cache")
+);
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 const NAMU_HEADERS = {
@@ -227,11 +243,10 @@ function pickCuratedTitle(exceptTitle = "", pool = curatedFallbackTitles) {
 
 async function getArticle(title) {
   const key = normalizeTitle(title);
-  const cached = documentCache.get(key);
+  const now = Date.now();
+  const cached = await getCachedArticle(key, now);
 
-  if (cached && Date.now() - cached.fetchedAt < DOCUMENT_TTL_MS) {
-    return cached.article;
-  }
+  if (cached) return cached;
 
   const attempts = [
     { url: makeArticleUrl(key) },
@@ -259,25 +274,137 @@ async function getArticle(title) {
   if (!article) {
     if (ALLOW_SYNTHETIC_FALLBACK && lastStatus === 403) {
       const article = syntheticArticle(key, lastStatus);
-      documentCache.set(key, {
-        fetchedAt: Date.now(),
-        article
-      });
+      await cacheArticle(article, [key], now);
       return article;
     }
     throw httpError(lastStatus || 502, `Could not fetch article: ${key}`);
   }
 
-  documentCache.set(normalizeTitle(article.title), {
-    fetchedAt: Date.now(),
-    article
-  });
-  documentCache.set(key, {
-    fetchedAt: Date.now(),
-    article
-  });
+  await cacheArticle(article, [normalizeTitle(article.title), key], now);
 
   return article;
+}
+
+async function getCachedArticle(key, now = Date.now()) {
+  const cached = documentCache.get(key);
+  if (cached) {
+    if (now - cached.fetchedAt >= DOCUMENT_TTL_MS) {
+      documentCache.delete(key);
+    } else {
+      documentCache.delete(key);
+      documentCache.set(key, cached);
+      return cached.article;
+    }
+  }
+
+  const diskCached = await readCachedArticleFromDisk(key, now);
+  if (!diskCached) return null;
+
+  cacheArticleInMemory(diskCached.article, [key], diskCached.fetchedAt);
+  return diskCached.article;
+}
+
+async function cacheArticle(article, keys, now = Date.now()) {
+  for (const key of new Set(keys.map(normalizeTitle).filter(Boolean))) {
+    cacheArticleInMemory(article, [key], now);
+    await writeCachedArticleToDisk(key, article, now);
+  }
+
+  pruneDocumentCache(now);
+  await pruneDocumentCacheDirectory(now);
+}
+
+function cacheArticleInMemory(article, keys, fetchedAt = Date.now()) {
+  for (const key of new Set(keys.map(normalizeTitle).filter(Boolean))) {
+    documentCache.delete(key);
+    documentCache.set(key, {
+      fetchedAt,
+      article
+    });
+  }
+}
+
+function pruneDocumentCache(now = Date.now()) {
+  for (const [key, cached] of documentCache) {
+    if (now - cached.fetchedAt >= DOCUMENT_TTL_MS) {
+      documentCache.delete(key);
+    }
+  }
+
+  while (documentCache.size > DOCUMENT_CACHE_MAX_ENTRIES) {
+    const oldestKey = documentCache.keys().next().value;
+    documentCache.delete(oldestKey);
+  }
+}
+
+async function readCachedArticleFromDisk(key, now = Date.now()) {
+  try {
+    const payload = JSON.parse(await readFile(cacheFilePath(key), "utf8"));
+    const fetchedAt = Number(payload.fetchedAt || 0);
+
+    if (!fetchedAt || now - fetchedAt >= DOCUMENT_TTL_MS) {
+      await unlink(cacheFilePath(key)).catch(() => {});
+      return null;
+    }
+
+    if (!payload.article || normalizeTitle(payload.article.title) === "") {
+      return null;
+    }
+
+    return {
+      fetchedAt,
+      article: payload.article
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedArticleToDisk(key, article, fetchedAt = Date.now()) {
+  try {
+    await mkdir(DOCUMENT_CACHE_DIR, { recursive: true });
+    await writeFile(cacheFilePath(key), `${JSON.stringify({
+      version: 1,
+      key,
+      fetchedAt,
+      article
+    })}\n`);
+  } catch {
+    // Persistent cache is opportunistic; memory cache still keeps the game working.
+  }
+}
+
+async function pruneDocumentCacheDirectory(now = Date.now()) {
+  try {
+    const entries = await readdir(DOCUMENT_CACHE_DIR);
+    const cacheEntries = [];
+
+    for (const entry of entries) {
+      if (!entry.endsWith(".json")) continue;
+      const filePath = join(DOCUMENT_CACHE_DIR, entry);
+      const fileStat = await stat(filePath);
+      if (now - fileStat.mtimeMs >= DOCUMENT_TTL_MS) {
+        await unlink(filePath).catch(() => {});
+        continue;
+      }
+      cacheEntries.push({ filePath, mtimeMs: fileStat.mtimeMs });
+    }
+
+    cacheEntries.sort((a, b) => a.mtimeMs - b.mtimeMs);
+    while (cacheEntries.length > DOCUMENT_CACHE_MAX_ENTRIES) {
+      const oldest = cacheEntries.shift();
+      await unlink(oldest.filePath).catch(() => {});
+    }
+  } catch {
+    // Ignore missing or unwritable persistent cache directories.
+  }
+}
+
+function cacheFilePath(key) {
+  const digest = createHash("sha256")
+    .update(normalizeTitle(key))
+    .digest("hex");
+  return join(DOCUMENT_CACHE_DIR, `${digest}.json`);
 }
 
 function looksLikeClientShell(article) {
