@@ -69,8 +69,7 @@ const sensitiveTerms = [
 export async function createRound(options = {}) {
   const requestedStartTitle = normalizeTitle(options.startTitle);
   const requestedGoalTitle = normalizeTitle(options.goalTitle);
-  const seed = normalizeRoundSeed(options.seed);
-  const dailySeed = normalizeDailySeed(seed);
+  const dailyChallenge = Boolean(options.dailyChallenge);
   if (
     requestedStartTitle &&
     requestedGoalTitle &&
@@ -78,48 +77,27 @@ export async function createRound(options = {}) {
   ) {
     throw httpError(400, "시작 문서와 목표 문서는 서로 달라야 합니다.");
   }
-  if (dailySeed && !requestedStartTitle && !requestedGoalTitle) {
-    return createPersistedDailyRound(dailySeed);
+  if (dailyChallenge && !requestedStartTitle && !requestedGoalTitle) {
+    return createPersistedDailyRound(todayDateKey());
   }
 
   const startArticle = requestedStartTitle
     ? await getRequestedArticle(requestedStartTitle, "시작")
-    : seed
-      ? await pickSeededArticleCandidate({
-          seed,
-          role: "start",
-          exceptTitles: [],
-          minLinks: 12
-        })
-      : await pickArticleCandidate({
-          role: "start",
-          exceptTitles: [],
-          minLinks: 12
-        });
+    : await pickArticleCandidate({
+        role: "start",
+        exceptTitles: [],
+        minLinks: 12
+      });
   let goalArticle = requestedGoalTitle
     ? await getRequestedArticle(requestedGoalTitle, "목표")
-    : seed
-      ? await pickSeededArticleCandidate({
-          seed,
-          role: "goal",
-          exceptTitles: [startArticle.title],
-          minLinks: 4
-        })
-      : await pickArticleCandidate({
-          role: "goal",
-          exceptTitles: [startArticle.title],
-          minLinks: 4
-        });
+    : await pickArticleCandidate({
+        role: "goal",
+        exceptTitles: [startArticle.title],
+        minLinks: 4
+      });
 
   if (normalizeTitle(goalArticle.title) === normalizeTitle(startArticle.title)) {
-    goalArticle = seed
-      ? await pickSeededArticleCandidate({
-          seed: `${seed}:goal-retry`,
-          role: "goal",
-          exceptTitles: [startArticle.title],
-          minLinks: 4
-        })
-      : await getArticle(pickCuratedTitle(startArticle.title, targetFallbackTitles));
+    goalArticle = await getArticle(pickCuratedTitle(startArticle.title, targetFallbackTitles));
   }
 
   const round = {
@@ -129,7 +107,7 @@ export async function createRound(options = {}) {
     path: [startArticle.title],
     startedAt: Date.now(),
     clickCount: 0,
-    seed
+    dailyChallenge
   };
 
   return {
@@ -150,34 +128,34 @@ async function getRequestedArticle(title, roleLabel) {
   }
 }
 
-async function createPersistedDailyRound(seed) {
-  const storedRound = await getOrCreateDailyRound(seed);
+async function createPersistedDailyRound(dateKey) {
+  const storedRound = await getOrCreateDailyRound(dateKey);
   return createRound({
     startTitle: storedRound.startTitle,
     goalTitle: storedRound.goalTitle,
-    seed
+    dailyChallenge: true
   });
 }
 
-async function getOrCreateDailyRound(seed) {
-  const cachedRound = dailyRoundCache.get(seed);
+async function getOrCreateDailyRound(dateKey) {
+  const cachedRound = dailyRoundCache.get(dateKey);
   if (cachedRound) return cachedRound;
 
   const store = await readDailyRoundStore();
-  const existingRound = normalizeStoredDailyRound(seed, store[seed]);
+  const existingRound = normalizeStoredDailyRound(dateKey, store[dateKey]);
   if (existingRound) {
-    dailyRoundCache.set(seed, existingRound);
+    dailyRoundCache.set(dateKey, existingRound);
     return existingRound;
   }
 
   return queueDailyRoundWrite(async () => {
-    const queuedCachedRound = dailyRoundCache.get(seed);
+    const queuedCachedRound = dailyRoundCache.get(dateKey);
     if (queuedCachedRound) return queuedCachedRound;
 
     const latestStore = await readDailyRoundStore();
-    const latestRound = normalizeStoredDailyRound(seed, latestStore[seed]);
+    const latestRound = normalizeStoredDailyRound(dateKey, latestStore[dateKey]);
     if (latestRound) {
-      dailyRoundCache.set(seed, latestRound);
+      dailyRoundCache.set(dateKey, latestRound);
       return latestRound;
     }
 
@@ -192,14 +170,14 @@ async function getOrCreateDailyRound(seed) {
       minLinks: 4
     });
     const dailyRound = {
-      seed,
+      dateKey,
       startTitle: startArticle.title,
       goalTitle: goalArticle.title,
       createdAt: new Date().toISOString()
     };
 
-    latestStore[seed] = dailyRound;
-    dailyRoundCache.set(seed, dailyRound);
+    latestStore[dateKey] = dailyRound;
+    dailyRoundCache.set(dateKey, dailyRound);
     try {
       await writeDailyRoundStore(pruneDailyRoundStore(latestStore));
     } catch (error) {
@@ -227,13 +205,13 @@ async function writeDailyRoundStore(store) {
   await writeFile(DAILY_ROUNDS_FILE, `${JSON.stringify(store, null, 2)}\n`);
 }
 
-function normalizeStoredDailyRound(seed, round) {
+function normalizeStoredDailyRound(dateKey, round) {
   const startTitle = normalizeTitle(round?.startTitle);
   const goalTitle = normalizeTitle(round?.goalTitle);
   if (!startTitle || !goalTitle || sameTitle(startTitle, goalTitle)) return null;
 
   return {
-    seed,
+    dateKey,
     startTitle,
     goalTitle,
     createdAt: String(round?.createdAt || "")
@@ -242,8 +220,8 @@ function normalizeStoredDailyRound(seed, round) {
 
 function pruneDailyRoundStore(store) {
   const entries = Object.entries(store || {})
-    .map(([seed, round]) => [normalizeDailySeed(seed), normalizeStoredDailyRound(seed, round)])
-    .filter(([normalizedSeed, round]) => normalizedSeed && round)
+    .map(([dateKey, round]) => [normalizeDailyDateKey(dateKey), normalizeStoredDailyRound(dateKey, round)])
+    .filter(([normalizedDateKey, round]) => normalizedDateKey && round)
     .sort(([a], [b]) => b.localeCompare(a))
     .slice(0, 60);
 
@@ -352,39 +330,6 @@ async function pickArticleCandidate({ role, exceptTitles, minLinks }) {
   }
 
   return getArticle(pickCuratedTitle(exceptTitles[0], acceptedFallbacks));
-}
-
-async function pickSeededArticleCandidate({ seed, role, exceptTitles, minLinks }) {
-  const pool = uniqueTitles([
-    ...(role === "goal" ? targetFallbackTitles : curatedFallbackTitles),
-    ...curatedFallbackTitles,
-    ...targetFallbackTitles
-  ]);
-  const candidates = [];
-
-  for (const title of stableSeededOrder(pool, `${seed}:${role}`)) {
-    if (exceptTitles.some((exceptTitle) => sameTitle(title, exceptTitle))) continue;
-
-    try {
-      const article = await getArticle(title);
-      const quality = scoreArticleQuality(article, { minLinks, role });
-      if (quality.accepted) return article;
-      candidates.push({ article, quality });
-    } catch {
-      // Try the next deterministic candidate.
-    }
-  }
-
-  const bestCandidate = candidates
-    .filter(({ article }) => !exceptTitles.some((exceptTitle) => sameTitle(article.title, exceptTitle)))
-    .sort((a, b) => b.quality.score - a.quality.score)[0];
-
-  if (bestCandidate) return bestCandidate.article;
-
-  const fallbackTitle = stableSeededOrder(pool, `${seed}:${role}:fallback`).find(
-    (title) => !exceptTitles.some((exceptTitle) => sameTitle(title, exceptTitle))
-  );
-  return getArticle(fallbackTitle || pool[0]);
 }
 
 function pickCuratedTitle(exceptTitle = "", pool = curatedFallbackTitles) {
@@ -685,7 +630,7 @@ function publicRound(round) {
     path: round.path,
     clickCount: round.clickCount,
     startedAt: round.startedAt,
-    seed: round.seed || ""
+    dailyChallenge: Boolean(round.dailyChallenge)
   };
 }
 
@@ -697,7 +642,7 @@ function encodeRoundToken(round) {
     path: round.path,
     clickCount: round.clickCount,
     startedAt: round.startedAt,
-    seed: round.seed || ""
+    dailyChallenge: Boolean(round.dailyChallenge)
   })).toString("base64url");
   return `${payload}.${signRoundPayload(payload)}`;
 }
@@ -856,49 +801,22 @@ function sameTitle(a, b) {
   return normalizeTitle(a) === normalizeTitle(b);
 }
 
-export function normalizeRoundSeed(seed) {
-  return String(seed || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-}
-
-function normalizeDailySeed(seed) {
-  const normalized = normalizeRoundSeed(seed);
-  return /^daily-\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
-}
-
 function shuffled(values) {
   return [...values].sort(() => Math.random() - 0.5);
 }
 
-export function stableSeededOrder(values, seed) {
-  const random = createSeededRandom(seed);
-  const ordered = [...values];
-  for (let index = ordered.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(random() * (index + 1));
-    [ordered[index], ordered[swapIndex]] = [ordered[swapIndex], ordered[index]];
-  }
-  return ordered;
+function normalizeDailyDateKey(value) {
+  const normalized = String(value || "")
+    .replace(/^daily-/, "")
+    .trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
 }
 
-function createSeededRandom(seed) {
-  let state = hashSeed(seed);
-  return () => {
-    state += 0x6d2b79f5;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function hashSeed(seed) {
-  let hash = 2166136261;
-  const normalized = normalizeRoundSeed(seed);
-  for (let index = 0; index < normalized.length; index += 1) {
-    hash ^= normalized.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
+function todayDateKey() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
 }

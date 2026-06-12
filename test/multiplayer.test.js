@@ -8,7 +8,7 @@ import {
   readMultiplayerSignals
 } from "../src/multiplayer.js";
 
-test("creates and joins a multiplayer room with a shared seed", () => {
+test("creates and joins a multiplayer room", () => {
   clearMultiplayerRoomsForTests();
 
   const created = createMultiplayerRoom();
@@ -19,7 +19,14 @@ test("creates and joins a multiplayer room with a shared seed", () => {
   assert.equal(joined.room.isHost, false);
   assert.equal(joined.room.hostPeerId, created.peerId);
   assert.equal(joined.room.hasGuest, true);
-  assert.equal(joined.room.seed, `multi-${created.room.code.toLowerCase()}`);
+  assert.deepEqual(Object.keys(joined.room).sort(), [
+    "code",
+    "expiresAt",
+    "guestPeerId",
+    "hasGuest",
+    "hostPeerId",
+    "isHost"
+  ]);
 });
 
 test("relays multiplayer signals to the targeted peer", () => {

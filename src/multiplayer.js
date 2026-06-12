@@ -185,15 +185,10 @@ function publicRoom(room, peerId = "") {
       hostPeerId: room.hostPeerId,
       guestPeerId: room.guestPeerId,
       hasGuest: Boolean(room.guestPeerId),
-      seed: multiplayerSeed(room.code),
       expiresAt: new Date(room.expiresAt).toISOString()
     },
     peerId
   };
-}
-
-function multiplayerSeed(code) {
-  return `multi-${code.toLowerCase()}`;
 }
 
 function touchRoom(room) {

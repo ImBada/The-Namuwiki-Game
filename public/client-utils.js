@@ -6,19 +6,6 @@ export function normalizeClientTitle(title) {
     .normalize("NFC");
 }
 
-export function normalizeSeedInput(seed) {
-  return String(seed || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-}
-
-export function createShareSeed() {
-  const timePart = Date.now().toString(36);
-  const randomPart = Math.random().toString(36).slice(2, 10);
-  return `share-${timePart}-${randomPart}`;
-}
-
 export function formatSeconds(totalSeconds) {
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
   const seconds = String(totalSeconds % 60).padStart(2, "0");
@@ -38,10 +25,6 @@ export function secondsUntilNextDailyChallenge() {
   const nextMidnightKst = new Date(kstNow);
   nextMidnightKst.setHours(24, 0, 0, 0);
   return Math.max(0, Math.ceil((nextMidnightKst - kstNow) / 1000));
-}
-
-export function todaySeed() {
-  return `daily-${todayDateKey()}`;
 }
 
 export function todayDateKey() {

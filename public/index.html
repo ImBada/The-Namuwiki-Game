@@ -209,14 +209,6 @@
         <span class="result-kicker">목표 도착</span>
         <h2 id="resultTitle">도착</h2>
         <p id="resultSummary"></p>
-        <section id="resultSeedPanel" class="result-seed-panel" aria-labelledby="resultSeedLabel">
-          <div>
-            <span id="resultSeedLabel">시드</span>
-            <strong id="resultSeedValue">-</strong>
-          </div>
-          <button id="copySeedButton" class="secondary-button" type="button">복사</button>
-          <p id="copySeedStatus" aria-live="polite"></p>
-        </section>
         <ol id="resultPathList" class="result-path-list"></ol>
         <form id="dailyScoreForm" class="daily-score-form" hidden>
           <label for="dailyNicknameInput">순위표 닉네임</label>
@@ -273,27 +265,8 @@
                 <div id="recentSpecifiedGameList"></div>
               </section>
             </section>
-            <button id="seedFromModeButton" class="mode-option-button mode-option-card" type="button">
-              <span class="mode-option-index" aria-hidden="true">3</span>
-              <span class="mode-option-copy">
-                <strong>시드 입력</strong>
-                <span>공유받은 시드로 게임을 시작합니다.</span>
-              </span>
-            </button>
           </div>
           <button class="secondary-button game-mode-cancel-button" type="button" data-game-mode-cancel>취소</button>
-        </form>
-      </dialog>
-
-      <dialog id="seedDialog" class="seed-dialog">
-        <form id="seedForm" method="dialog">
-          <h2>시드로 시작</h2>
-          <label for="seedInput">공유받은 시드</label>
-          <input id="seedInput" name="seed" type="text" maxlength="80" autocomplete="off" placeholder="예: share-lx2p9a" />
-          <div class="seed-actions">
-            <button class="secondary-button" value="cancel" type="button" data-seed-cancel>취소</button>
-            <button id="seedStartButton" class="primary-button" type="submit">시작</button>
-          </div>
         </form>
       </dialog>
 

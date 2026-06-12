@@ -4,10 +4,9 @@ import {
   formatDuration,
   formatSeconds,
   normalizeClientTitle,
-  normalizeSeedInput,
   secondsUntilNextDailyChallenge,
-  todayDisplayDate,
-  todaySeed
+  todayDateKey,
+  todayDisplayDate
 } from "./client-utils.js";
 import {
   normalizeWikiArticleDom,
@@ -27,10 +26,10 @@ const state = {
   article: null,
   dailyPreview: null,
   dailyPreviewLoading: false,
-  dailyPreviewSeed: "",
+  dailyPreviewDateKey: "",
   dailyScores: [],
   dailyScoresLoading: false,
-  dailyScoresSeed: "",
+  dailyScoresDateKey: "",
   hasStarted: false,
   homeView: "home",
   completedElapsedSeconds: 0,
@@ -69,14 +68,9 @@ const els = {
   resultKicker: document.querySelector(".result-kicker"),
   resultTitle: document.querySelector("#resultTitle"),
   resultSummary: document.querySelector("#resultSummary"),
-  resultSeedPanel: document.querySelector("#resultSeedPanel"),
-  resultSeedValue: document.querySelector("#resultSeedValue"),
-  copySeedButton: document.querySelector("#copySeedButton"),
-  copySeedStatus: document.querySelector("#copySeedStatus"),
   resultPathList: document.querySelector("#resultPathList"),
   shareResultButton: document.querySelector("#shareResultButton"),
   shareResultStatus: document.querySelector("#shareResultStatus"),
-  seedDialog: document.querySelector("#seedDialog"),
   gameModeDialog: document.querySelector("#gameModeDialog"),
   gameModeForm: document.querySelector("#gameModeForm"),
   randomGameButton: document.querySelector("#randomGameButton"),
@@ -86,10 +80,6 @@ const els = {
   specifiedGameStatus: document.querySelector("#specifiedGameStatus"),
   recentSpecifiedGames: document.querySelector("#recentSpecifiedGames"),
   recentSpecifiedGameList: document.querySelector("#recentSpecifiedGameList"),
-  seedFromModeButton: document.querySelector("#seedFromModeButton"),
-  seedForm: document.querySelector("#seedForm"),
-  seedInput: document.querySelector("#seedInput"),
-  seedStartButton: document.querySelector("#seedStartButton"),
   dailyScoreForm: document.querySelector("#dailyScoreForm"),
   dailyNicknameInput: document.querySelector("#dailyNicknameInput"),
   dailyScoreStatus: document.querySelector("#dailyScoreStatus"),
@@ -153,7 +143,6 @@ els.dialogNewRoundButton.addEventListener("click", () => {
     startFreshRound();
   }
 });
-els.copySeedButton.addEventListener("click", copyRoundSeed);
 els.shareResultButton.addEventListener("click", shareCurrentResult);
 els.randomGameButton.addEventListener("click", () => {
   els.gameModeDialog.close();
@@ -165,14 +154,6 @@ for (const input of [els.specifiedStartInput, els.specifiedGoalInput]) {
 }
 els.gameModeDialog.querySelector("[data-game-mode-cancel]").addEventListener("click", () => {
   els.gameModeDialog.close();
-});
-els.seedFromModeButton.addEventListener("click", () => {
-  els.gameModeDialog.close();
-  openSeedDialog();
-});
-els.seedForm.addEventListener("submit", startSeededRoundFromDialog);
-els.seedDialog.querySelector("[data-seed-cancel]").addEventListener("click", () => {
-  els.seedDialog.close();
 });
 els.multiplayerDialog.querySelector("[data-multiplayer-close]").addEventListener("click", closeMultiplayerDialog);
 els.createRoomButton.addEventListener("click", createMultiplayerRoom);
@@ -274,29 +255,10 @@ async function startRound() {
 
 function startDailyChallenge() {
   const params = new URLSearchParams(window.location.search);
-  params.set("seed", todaySeed());
+  params.set("daily", "1");
   params.delete("start");
   params.delete("goal");
   window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
-  startRound();
-}
-
-function openSeedDialog() {
-  els.seedInput.value = "";
-  els.seedDialog.showModal();
-  window.setTimeout(() => els.seedInput.focus(), 0);
-}
-
-function startSeededRoundFromDialog(event) {
-  event.preventDefault();
-  const seed = normalizeSeedInput(els.seedInput.value);
-  if (!seed) {
-    els.seedInput.focus();
-    return;
-  }
-
-  setRoundSeedQuery(seed);
-  els.seedDialog.close();
   startRound();
 }
 
@@ -368,26 +330,18 @@ function returnHome() {
 
 function clearRoundQueryParams() {
   const params = new URLSearchParams(window.location.search);
-  params.delete("seed");
+  params.delete("daily");
   params.delete("start");
   params.delete("goal");
   const query = params.toString();
   window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
 }
 
-function setRoundSeedQuery(seed) {
-  const params = new URLSearchParams(window.location.search);
-  params.set("seed", seed);
-  params.delete("start");
-  params.delete("goal");
-  window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
-}
-
 function setSpecifiedRoundQuery(startTitle, goalTitle) {
   const params = new URLSearchParams(window.location.search);
   params.set("start", startTitle);
   params.set("goal", goalTitle);
-  params.delete("seed");
+  params.delete("daily");
   window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
 }
 
@@ -400,7 +354,7 @@ function normalizeTitleInput(value) {
 function roundRequestUrl() {
   const params = new URLSearchParams(window.location.search);
   const requestParams = new URLSearchParams();
-  for (const key of ["start", "goal", "seed"]) {
+  for (const key of ["start", "goal", "daily"]) {
     const value = params.get(key);
     if (value) requestParams.set(key, value);
   }
@@ -1277,22 +1231,22 @@ function renderRoundAction() {
 }
 
 function renderHomeChallenge() {
-  const seed = todaySeed();
-  if (state.dailyPreviewSeed !== seed) {
+  const dateKey = todayDateKey();
+  if (state.dailyPreviewDateKey !== dateKey) {
     state.dailyPreview = null;
     state.dailyPreviewLoading = false;
-    state.dailyPreviewSeed = seed;
+    state.dailyPreviewDateKey = dateKey;
     state.dailyScores = [];
     state.dailyScoresLoading = false;
-    state.dailyScoresSeed = "";
+    state.dailyScoresDateKey = "";
   }
   els.dailyDateText.textContent = todayDisplayDate();
   renderDailyCountdown();
   els.leaderboardScope.textContent = todayDisplayDate();
   renderDailyPreview();
-  ensureDailyChallengePreview(seed);
-  renderDailyLeaderboard(seed);
-  ensureDailyLeaderboard(seed);
+  ensureDailyChallengePreview();
+  renderDailyLeaderboard();
+  ensureDailyLeaderboard();
 }
 
 function renderDailyPreview() {
@@ -1312,13 +1266,13 @@ function renderDailyPreview() {
     : "문제를 불러오지 못했습니다.";
 }
 
-async function ensureDailyChallengePreview(seed) {
+async function ensureDailyChallengePreview() {
   if (state.dailyPreview || state.dailyPreviewLoading) return;
 
   state.dailyPreviewLoading = true;
   renderDailyPreview();
   try {
-    const data = await fetchJson(`/api/round?seed=${encodeURIComponent(seed)}`);
+    const data = await fetchJson("/api/round?daily=1");
     state.dailyPreview = {
       startTitle: data.round?.startTitle || "-",
       goalTitle: data.round?.goalTitle || "-"
@@ -1331,8 +1285,8 @@ async function ensureDailyChallengePreview(seed) {
   }
 }
 
-function renderDailyLeaderboard(seed = todaySeed()) {
-  const scores = state.dailyScoresSeed === seed ? state.dailyScores.slice(0, 5) : [];
+function renderDailyLeaderboard() {
+  const scores = state.dailyScoresDateKey === todayDateKey() ? state.dailyScores.slice(0, 5) : [];
   if (scores.length === 0) {
     const item = document.createElement("li");
     item.className = "leaderboard-empty";
@@ -1439,8 +1393,7 @@ function saveCompletedRoundHistory() {
     elapsedSeconds: state.completedElapsedSeconds || elapsedSecondsForRound(),
     pathLength: path.length,
     path,
-    seed: state.round.seed || "",
-    modeLabel: historyModeLabel(state.round.seed || "")
+    modeLabel: currentRoundModeLabel()
   };
 
   const nextHistory = [
@@ -1483,8 +1436,7 @@ function normalizeHistoryRecord(record) {
     elapsedSeconds: Number.parseInt(record.elapsedSeconds, 10) || 0,
     pathLength: Number.parseInt(record.pathLength, 10) || path.length,
     path,
-    seed: String(record.seed || ""),
-    modeLabel: String(record.modeLabel || historyModeLabel(record.seed || ""))
+    modeLabel: String(record.modeLabel || "랜덤")
   };
 }
 
@@ -1497,10 +1449,12 @@ function clearHistory() {
   renderHistory();
 }
 
-function historyModeLabel(seed) {
-  if (!seed) return "랜덤";
-  if (seed === todaySeed()) return "일일 챌린지";
-  return "시드";
+function currentRoundModeLabel() {
+  if (state.round?.dailyChallenge) return "일일 챌린지";
+  if (state.multiplayer.inGame) return "멀티플레이";
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("start") || params.get("goal")) return "지정";
+  return "랜덤";
 }
 
 function formatHistoryDate(value) {
@@ -1514,21 +1468,22 @@ function formatHistoryDate(value) {
   }).format(date);
 }
 
-async function ensureDailyLeaderboard(seed) {
-  if (state.dailyScoresSeed === seed || state.dailyScoresLoading) return;
+async function ensureDailyLeaderboard() {
+  const dateKey = todayDateKey();
+  if (state.dailyScoresDateKey === dateKey || state.dailyScoresLoading) return;
 
   state.dailyScoresLoading = true;
-  renderDailyLeaderboard(seed);
+  renderDailyLeaderboard();
   try {
-    const data = await fetchJson(`/api/daily-scores?seed=${encodeURIComponent(seed)}`);
+    const data = await fetchJson("/api/daily-scores");
     state.dailyScores = Array.isArray(data.scores) ? data.scores.sort(compareScores) : [];
-    state.dailyScoresSeed = seed;
+    state.dailyScoresDateKey = data.dateKey || dateKey;
   } catch {
     state.dailyScores = [];
-    state.dailyScoresSeed = seed;
+    state.dailyScoresDateKey = dateKey;
   } finally {
     state.dailyScoresLoading = false;
-    renderDailyLeaderboard(seed);
+    renderDailyLeaderboard();
   }
 }
 
@@ -1565,7 +1520,6 @@ function renderResult() {
   els.dailyRankPanel.hidden = true;
   els.dialogNewRoundButton.hidden = false;
   els.dialogNewRoundButton.textContent = "다음 라운드";
-  renderResultSeed();
   els.resultPathList.replaceChildren(
     ...path.map((title) => {
       const item = document.createElement("li");
@@ -1588,7 +1542,6 @@ function renderDailyResult() {
   els.dailyRankPanel.hidden = true;
   els.dialogNewRoundButton.hidden = true;
   els.dialogNewRoundButton.textContent = "메인으로";
-  renderResultSeed();
   els.resultPathList.replaceChildren(
     ...path.map((title) => {
       const item = document.createElement("li");
@@ -1597,25 +1550,6 @@ function renderDailyResult() {
       return item;
     })
   );
-}
-
-function renderResultSeed() {
-  const seed = state.round?.seed || "";
-  els.resultSeedPanel.hidden = !seed;
-  els.resultSeedValue.textContent = seed || "-";
-  els.copySeedStatus.textContent = "";
-}
-
-async function copyRoundSeed() {
-  const seed = state.round?.seed || "";
-  if (!seed) return;
-
-  try {
-    await navigator.clipboard.writeText(seed);
-    els.copySeedStatus.textContent = "시드를 복사했습니다.";
-  } catch {
-    els.copySeedStatus.textContent = "복사하지 못했습니다. 시드를 직접 선택해 주세요.";
-  }
 }
 
 async function shareCurrentResult() {
@@ -1639,8 +1573,7 @@ function currentResultRecord() {
     elapsedSeconds: state.completedElapsedSeconds || elapsedSecondsForRound(),
     pathLength: path.length,
     path,
-    seed: state.round.seed || "",
-    modeLabel: historyModeLabel(state.round.seed || "")
+    modeLabel: currentRoundModeLabel()
   };
 }
 
@@ -1692,7 +1625,7 @@ function setShareStatus(statusElement, message) {
 
 function shareTextForRecord(record) {
   const route = shareTweetRouteText(record);
-  const mode = record.modeLabel || historyModeLabel(record.seed || "");
+  const mode = record.modeLabel || "랜덤";
   return `나무위키 게임 ${mode} 클리어!\n${route}\n${record.clickCount || 0} 클릭 · ${formatSeconds(record.elapsedSeconds || 0)}\n`;
 }
 
@@ -1713,12 +1646,8 @@ function shareUrlForRecord(record) {
   const url = new URL(window.location.origin || window.location.href);
   url.pathname = "/";
   url.search = "";
-  if (record.seed) {
-    url.searchParams.set("seed", record.seed);
-  } else {
-    if (record.startTitle) url.searchParams.set("start", record.startTitle);
-    if (record.goalTitle) url.searchParams.set("goal", record.goalTitle);
-  }
+  if (record.startTitle) url.searchParams.set("start", record.startTitle);
+  if (record.goalTitle) url.searchParams.set("goal", record.goalTitle);
   return url.toString();
 }
 
@@ -1828,13 +1757,13 @@ function drawBrandHeader(ctx, record) {
   ctx.font = "800 24px Inter, system-ui, sans-serif";
   ctx.fillText("나무위키 게임", 950, 123);
 
-  const seedText = record.seed ? `seed: ${record.seed}` : "random round";
+  const modeText = record.modeLabel || "랜덤";
   ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
-  ctx.font = "700 16px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  const seedWidth = Math.min(338, Math.ceil(ctx.measureText(seedText).width) + 44);
-  const seedX = 1098 - seedWidth;
-  drawRoundedRect(ctx, seedX, 148, seedWidth, 34, 8, "rgba(255, 255, 255, 0.05)", "rgba(120, 255, 226, 0.16)");
-  drawFittedText(ctx, seedText, seedX + 22, 171, seedWidth - 44);
+  ctx.font = "700 16px Inter, system-ui, sans-serif";
+  const modeWidth = Math.min(338, Math.ceil(ctx.measureText(modeText).width) + 44);
+  const modeX = 1098 - modeWidth;
+  drawRoundedRect(ctx, modeX, 148, modeWidth, 34, 8, "rgba(255, 255, 255, 0.05)", "rgba(120, 255, 226, 0.16)");
+  drawFittedText(ctx, modeText, modeX + 22, 171, modeWidth - 44);
 }
 
 function drawRouteTicket(ctx, record) {
@@ -2026,7 +1955,6 @@ async function submitDailyScoreFromDialog(event) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        seed: state.round.seed,
         nickname,
         clickCount: state.round.clickCount || 0,
         elapsedSeconds: state.completedElapsedSeconds || elapsedSecondsForRound(),
@@ -2034,8 +1962,8 @@ async function submitDailyScoreFromDialog(event) {
       })
     });
     state.dailyScores = Array.isArray(data.scores) ? data.scores.sort(compareScores) : [];
-    state.dailyScoresSeed = state.round.seed;
-    renderDailyLeaderboard(state.round.seed);
+    state.dailyScoresDateKey = data.dateKey || todayDateKey();
+    renderDailyLeaderboard();
     renderDailyRank(data.rank, data.scores?.length || 0);
   } catch (error) {
     els.dailyScoreStatus.textContent = error.message;
@@ -2064,7 +1992,7 @@ function renderDailyRank(rank, visibleScoreCount) {
 }
 
 function isDailyChallengeRound() {
-  return state.round?.seed === todaySeed();
+  return Boolean(state.round?.dailyChallenge);
 }
 
 function editNickname() {
@@ -2142,7 +2070,7 @@ function startHomeClock() {
   stopTimer();
   state.tick = window.setInterval(() => {
     renderDailyCountdown();
-    if (state.dailyPreviewSeed && state.dailyPreviewSeed !== todaySeed()) {
+    if (state.dailyPreviewDateKey && state.dailyPreviewDateKey !== todayDateKey()) {
       renderHomeChallenge();
     }
   }, 1000);
@@ -2182,7 +2110,6 @@ function elapsedSecondsForRound() {
 function setLoading(isLoading) {
   document.body.classList.toggle("is-loading", isLoading);
   els.startGameButton.disabled = isLoading;
-  els.seedStartButton.disabled = isLoading;
   els.dailyChallengeButton.disabled = isLoading;
   els.homeButton.disabled = isLoading;
   els.newRoundButton.disabled = isLoading;

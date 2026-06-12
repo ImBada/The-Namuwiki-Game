@@ -2,7 +2,6 @@ import { createHmac } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { httpError } from "./http.js";
-import { normalizeRoundSeed } from "./game.js";
 
 const DATA_DIR = resolve(
   process.env.DATA_DIR ||
@@ -15,32 +14,26 @@ const ROUND_SECRET =
 
 let dailyScoreWriteQueue = Promise.resolve();
 
-export async function getDailyLeaderboard(seed) {
-  const dailySeed = normalizeDailySeed(seed);
-  if (!dailySeed) throw httpError(400, "Invalid daily challenge seed");
-
+export async function getDailyLeaderboard() {
+  const dateKey = todayDateKey();
   const store = await readDailyScoreStore();
   return {
-    seed: dailySeed,
-    scores: normalizeDailyScores(store[dailySeed] || []).slice(0, 20)
+    dateKey,
+    scores: normalizeDailyScores(store[dateKey] || []).slice(0, 20)
   };
 }
 
 export async function submitDailyScore(body) {
-  const seed = normalizeDailySeed(body?.seed);
-  if (!seed || seed !== todaySeed()) {
-    throw httpError(400, "오늘의 일일 챌린지 기록만 등록할 수 있습니다.");
-  }
-
+  const dateKey = todayDateKey();
   const nickname = normalizeNickname(body?.nickname);
   if (!nickname) throw httpError(400, "닉네임을 입력해 주세요.");
 
   const score = {
     id: createHmac("sha256", ROUND_SECRET)
-      .update(`${seed}:${nickname}:${Date.now()}:${Math.random()}`)
+      .update(`${dateKey}:${nickname}:${Date.now()}:${Math.random()}`)
       .digest("base64url")
       .slice(0, 16),
-    seed,
+    dateKey,
     nickname,
     clickCount: clampInteger(body?.clickCount, 0, 999),
     elapsedSeconds: clampInteger(body?.elapsedSeconds, 0, 24 * 60 * 60),
@@ -50,10 +43,10 @@ export async function submitDailyScore(body) {
 
   const result = await queueDailyScoreWrite(async () => {
     const store = await readDailyScoreStore();
-    const todayOnlyStore = { [seed]: normalizeDailyScores(store[seed] || []) };
-    const sortedScores = [...todayOnlyStore[seed], score].sort(compareScores);
+    const todayOnlyStore = { [dateKey]: normalizeDailyScores(store[dateKey] || []) };
+    const sortedScores = [...todayOnlyStore[dateKey], score].sort(compareScores);
     const rank = sortedScores.findIndex((item) => item.id === score.id) + 1;
-    todayOnlyStore[seed] = sortedScores.slice(0, 100);
+    todayOnlyStore[dateKey] = sortedScores.slice(0, 100);
     await writeDailyScoreStore(todayOnlyStore);
     return {
       rank,
@@ -61,7 +54,7 @@ export async function submitDailyScore(body) {
     };
   });
 
-  return { seed, score, rank: result.rank, scores: result.scores };
+  return { dateKey, score, rank: result.rank, scores: result.scores };
 }
 
 function queueDailyScoreWrite(task) {
@@ -86,14 +79,14 @@ function normalizeDailyScores(scores) {
   return (Array.isArray(scores) ? scores : [])
     .map((score) => ({
       id: String(score.id || ""),
-      seed: normalizeDailySeed(score.seed),
+      dateKey: normalizeDailyDateKey(score.dateKey),
       nickname: normalizeNickname(score.nickname) || "익명",
       clickCount: clampInteger(score.clickCount, 0, 999),
       elapsedSeconds: clampInteger(score.elapsedSeconds, 0, 24 * 60 * 60),
       pathLength: clampInteger(score.pathLength, 1, 1000),
       completedAt: String(score.completedAt || "")
     }))
-    .filter((score) => score.seed)
+    .filter((score) => score.dateKey)
     .sort(compareScores);
 }
 
@@ -119,16 +112,18 @@ function clampInteger(value, min, max) {
   return Math.max(min, Math.min(max, integer));
 }
 
-function normalizeDailySeed(seed) {
-  const normalized = normalizeRoundSeed(seed);
-  return /^daily-\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
+function normalizeDailyDateKey(value) {
+  const normalized = String(value || "")
+    .replace(/^daily-/, "")
+    .trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
 }
 
-function todaySeed() {
-  return `daily-${new Intl.DateTimeFormat("en-CA", {
+function todayDateKey() {
+  return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",
     year: "numeric",
     month: "2-digit",
     day: "2-digit"
-  }).format(new Date())}`;
+  }).format(new Date());
 }

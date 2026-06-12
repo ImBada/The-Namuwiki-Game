@@ -5,9 +5,7 @@ import {
   estimateDifficulty,
   handleClick,
   handleRewind,
-  normalizeRoundSeed,
-  scoreArticleQuality,
-  stableSeededOrder
+  scoreArticleQuality
 } from "./src/game.js";
 import { getDailyLeaderboard, submitDailyScore } from "./src/daily-scores.js";
 import { readJsonBody, sendJson } from "./src/http.js";
@@ -25,9 +23,7 @@ const HOST = process.env.HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
 
 export {
   estimateDifficulty,
-  normalizeRoundSeed,
-  scoreArticleQuality,
-  stableSeededOrder
+  scoreArticleQuality
 };
 
 export async function handleRequest(request, response) {
@@ -42,12 +38,12 @@ export async function handleRequest(request, response) {
       return sendJson(response, await createRound({
         startTitle: url.searchParams.get("start"),
         goalTitle: url.searchParams.get("goal"),
-        seed: url.searchParams.get("seed")
+        dailyChallenge: url.searchParams.get("daily") === "1"
       }));
     }
 
     if (url.pathname === "/api/daily-scores" && request.method === "GET") {
-      return sendJson(response, await getDailyLeaderboard(url.searchParams.get("seed")));
+      return sendJson(response, await getDailyLeaderboard());
     }
 
     if (url.pathname === "/api/daily-scores" && request.method === "POST") {

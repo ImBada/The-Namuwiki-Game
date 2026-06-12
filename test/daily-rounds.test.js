@@ -58,11 +58,12 @@ test("persists daily challenge rounds after the first random generation", async 
     const moduleUrl = new URL(`../src/game.js?daily-rounds=${Date.now()}`, import.meta.url);
     const { createRound } = await import(moduleUrl.href);
 
-    const firstRound = await createRound({ seed: "daily-2026-06-12" });
-    const secondRound = await createRound({ seed: "daily-2026-06-12" });
+    const firstRound = await createRound({ dailyChallenge: true });
+    const secondRound = await createRound({ dailyChallenge: true });
 
     assert.equal(firstRound.round.startTitle, "무작위 시작");
     assert.equal(firstRound.round.goalTitle, "무작위 목표");
+    assert.equal(firstRound.round.dailyChallenge, true);
     assert.equal(secondRound.round.startTitle, firstRound.round.startTitle);
     assert.equal(secondRound.round.goalTitle, firstRound.round.goalTitle);
     assert.equal(randomCallCount, 2);

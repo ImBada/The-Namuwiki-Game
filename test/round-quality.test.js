@@ -2,9 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   estimateDifficulty,
-  normalizeRoundSeed,
-  scoreArticleQuality,
-  stableSeededOrder
+  scoreArticleQuality
 } from "../server.js";
 
 function article(title, linkTitles, description = "충분한 설명이 들어 있는 문서입니다.") {
@@ -116,22 +114,4 @@ test("estimates lower difficulty for related articles", () => {
 
   assert.equal(difficulty.sharedLinkCount, 2);
   assert.ok(difficulty.score < 65);
-});
-
-test("orders seeded candidates deterministically", () => {
-  const pool = ["대한민국", "일본", "컴퓨터", "영화", "음악"];
-
-  assert.deepEqual(
-    stableSeededOrder(pool, "daily-2026-06-11"),
-    stableSeededOrder(pool, "daily-2026-06-11")
-  );
-  assert.notDeepEqual(
-    stableSeededOrder(pool, "daily-2026-06-11"),
-    stableSeededOrder(pool, "daily-2026-06-12")
-  );
-});
-
-test("normalizes round seeds for stable URLs", () => {
-  assert.equal(normalizeRoundSeed("  daily   challenge  "), "daily challenge");
-  assert.equal(normalizeRoundSeed("x".repeat(100)).length, 80);
 });

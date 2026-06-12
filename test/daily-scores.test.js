@@ -4,13 +4,13 @@ import { mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-function todaySeed() {
-  return `daily-${new Intl.DateTimeFormat("en-CA", {
+function todayDateKey() {
+  return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",
     year: "numeric",
     month: "2-digit",
     day: "2-digit"
-  }).format(new Date())}`;
+  }).format(new Date());
 }
 
 test("returns the submitted daily score rank", async () => {
@@ -19,10 +19,9 @@ test("returns the submitted daily score rank", async () => {
 
   const moduleUrl = new URL(`../src/daily-scores.js?rank=${Date.now()}`, import.meta.url);
   const { submitDailyScore } = await import(moduleUrl.href);
-  const seed = todaySeed();
+  const dateKey = todayDateKey();
 
   await submitDailyScore({
-    seed,
     nickname: "빠른 사람",
     clickCount: 2,
     elapsedSeconds: 20,
@@ -30,13 +29,13 @@ test("returns the submitted daily score rank", async () => {
   });
 
   const submitted = await submitDailyScore({
-    seed,
     nickname: "두번째 사람",
     clickCount: 3,
     elapsedSeconds: 15,
     pathLength: 4
   });
 
+  assert.equal(submitted.dateKey, dateKey);
   assert.equal(submitted.rank, 2);
   assert.equal(submitted.score.nickname, "두번째 사람");
   assert.equal(submitted.scores[1].id, submitted.score.id);
