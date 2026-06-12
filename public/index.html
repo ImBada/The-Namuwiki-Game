@@ -33,7 +33,6 @@
             <p id="homeDescription">시작 문서와 목표 문서를 받은 뒤, 실제 문서 본문 링크만 눌러 길을 찾습니다.</p>
             <div class="home-actions">
               <button id="startGameButton" class="primary-button home-start-button" type="button">게임 시작</button>
-              <button id="seedGameButton" class="secondary-button home-seed-button" type="button">시드 입력</button>
             </div>
           </div>
 
@@ -111,8 +110,6 @@
               <strong data-nickname-label>익명</strong>
             </button>
             <span id="roundStatus" class="status-pill">라운드 준비</span>
-            <button id="homeButton" class="secondary-button" type="button">메인</button>
-            <button id="newRoundButton" class="primary-button" type="button">새 라운드</button>
           </div>
         </header>
 
@@ -137,6 +134,11 @@
             <span>난이도</span>
             <strong id="difficultyLabel">-</strong>
           </article>
+        </section>
+
+        <section class="game-control-bar" aria-label="게임 제어">
+          <button id="homeButton" class="secondary-button" type="button">메인</button>
+          <button id="newRoundButton" class="primary-button" type="button">새 무작위 라운드</button>
         </section>
 
         <section class="path-panel">
@@ -204,6 +206,49 @@
           <button id="dialogNewRoundButton" class="primary-button" type="button">다음 라운드</button>
         </div>
         <p id="shareResultStatus" class="share-status" aria-live="polite"></p>
+      </dialog>
+
+      <dialog id="gameModeDialog" class="game-mode-dialog">
+        <form id="gameModeForm" method="dialog">
+          <h2>게임 시작</h2>
+          <div class="game-mode-options">
+            <button id="randomGameButton" class="mode-option-button mode-option-card" type="button">
+              <span class="mode-option-index" aria-hidden="true">1</span>
+              <span class="mode-option-copy">
+                <strong>무작위 게임</strong>
+                <span>시작 문서와 목표 문서가 완전히 랜덤으로 선택됩니다.</span>
+              </span>
+            </button>
+            <section class="mode-option-card specified-game-panel" aria-labelledby="specifiedGameTitle">
+              <div class="mode-option-heading">
+                <span class="mode-option-index" aria-hidden="true">2</span>
+                <div class="mode-option-copy">
+                  <h3 id="specifiedGameTitle">지정된 게임</h3>
+                  <p>시작 문서와 목표 문서가 지정된 문서로 고정됩니다.</p>
+                </div>
+              </div>
+              <div class="specified-game-fields">
+                <div class="specified-game-field">
+                  <label for="specifiedStartInput">시작 문서</label>
+                  <input id="specifiedStartInput" name="start" type="text" maxlength="120" autocomplete="off" />
+                </div>
+                <div class="specified-game-field">
+                  <label for="specifiedGoalInput">목표 문서</label>
+                  <input id="specifiedGoalInput" name="goal" type="text" maxlength="120" autocomplete="off" />
+                </div>
+                <button id="specifiedGameButton" class="secondary-button specified-game-start-button" type="submit">지정된 게임 시작</button>
+              </div>
+            </section>
+            <button id="seedFromModeButton" class="mode-option-button mode-option-card" type="button">
+              <span class="mode-option-index" aria-hidden="true">3</span>
+              <span class="mode-option-copy">
+                <strong>시드 입력</strong>
+                <span>공유받은 시드로 게임을 시작합니다.</span>
+              </span>
+            </button>
+          </div>
+          <button class="secondary-button game-mode-cancel-button" type="button" data-game-mode-cancel>취소</button>
+        </form>
       </dialog>
 
       <dialog id="seedDialog" class="seed-dialog">

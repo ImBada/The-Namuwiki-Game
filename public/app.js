@@ -41,7 +41,6 @@ const els = {
   homeBoard: document.querySelector("#homeBoard"),
   historyScreen: document.querySelector("#historyScreen"),
   startGameButton: document.querySelector("#startGameButton"),
-  seedGameButton: document.querySelector("#seedGameButton"),
   dailyChallengeButton: document.querySelector("#dailyChallengeButton"),
   historyButton: document.querySelector("#historyButton"),
   historyBackButton: document.querySelector("#historyBackButton"),
@@ -73,6 +72,12 @@ const els = {
   shareResultButton: document.querySelector("#shareResultButton"),
   shareResultStatus: document.querySelector("#shareResultStatus"),
   seedDialog: document.querySelector("#seedDialog"),
+  gameModeDialog: document.querySelector("#gameModeDialog"),
+  gameModeForm: document.querySelector("#gameModeForm"),
+  randomGameButton: document.querySelector("#randomGameButton"),
+  specifiedStartInput: document.querySelector("#specifiedStartInput"),
+  specifiedGoalInput: document.querySelector("#specifiedGoalInput"),
+  seedFromModeButton: document.querySelector("#seedFromModeButton"),
   seedForm: document.querySelector("#seedForm"),
   seedInput: document.querySelector("#seedInput"),
   seedStartButton: document.querySelector("#seedStartButton"),
@@ -94,8 +99,7 @@ const els = {
   pathList: document.querySelector("#pathList")
 };
 
-els.startGameButton.addEventListener("click", startFreshRound);
-els.seedGameButton.addEventListener("click", openSeedDialog);
+els.startGameButton.addEventListener("click", openGameModeDialog);
 els.dailyChallengeButton.addEventListener("click", startDailyChallenge);
 els.historyButton.addEventListener("click", showHistory);
 els.historyBackButton.addEventListener("click", showHomeBoard);
@@ -108,6 +112,18 @@ els.dialogNewRoundButton.addEventListener("click", () => {
 });
 els.copySeedButton.addEventListener("click", copyRoundSeed);
 els.shareResultButton.addEventListener("click", shareCurrentResult);
+els.randomGameButton.addEventListener("click", () => {
+  els.gameModeDialog.close();
+  startFreshRound();
+});
+els.gameModeForm.addEventListener("submit", startSpecifiedRoundFromDialog);
+els.gameModeDialog.querySelector("[data-game-mode-cancel]").addEventListener("click", () => {
+  els.gameModeDialog.close();
+});
+els.seedFromModeButton.addEventListener("click", () => {
+  els.gameModeDialog.close();
+  openSeedDialog();
+});
 els.seedForm.addEventListener("submit", startSeededRoundFromDialog);
 els.seedDialog.querySelector("[data-seed-cancel]").addEventListener("click", () => {
   els.seedDialog.close();
@@ -131,6 +147,13 @@ startHomeClock();
 function startFreshRound() {
   clearRoundQueryParams();
   startRound();
+}
+
+function openGameModeDialog() {
+  const params = new URLSearchParams(window.location.search);
+  els.specifiedStartInput.value = params.get("start") || "";
+  els.specifiedGoalInput.value = params.get("goal") || "";
+  els.gameModeDialog.showModal();
 }
 
 async function startRound() {
@@ -185,6 +208,24 @@ function startSeededRoundFromDialog(event) {
   startRound();
 }
 
+function startSpecifiedRoundFromDialog(event) {
+  event.preventDefault();
+  const startTitle = normalizeTitleInput(els.specifiedStartInput.value);
+  const goalTitle = normalizeTitleInput(els.specifiedGoalInput.value);
+  if (!startTitle) {
+    els.specifiedStartInput.focus();
+    return;
+  }
+  if (!goalTitle) {
+    els.specifiedGoalInput.focus();
+    return;
+  }
+
+  setSpecifiedRoundQuery(startTitle, goalTitle);
+  els.gameModeDialog.close();
+  startRound();
+}
+
 function handleRoundAction() {
   if (isDailyChallengeRound()) {
     returnHome();
@@ -227,6 +268,20 @@ function setRoundSeedQuery(seed) {
   params.delete("start");
   params.delete("goal");
   window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
+}
+
+function setSpecifiedRoundQuery(startTitle, goalTitle) {
+  const params = new URLSearchParams(window.location.search);
+  params.set("start", startTitle);
+  params.set("goal", goalTitle);
+  params.delete("seed");
+  window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
+}
+
+function normalizeTitleInput(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function roundRequestUrl() {
@@ -349,7 +404,7 @@ function showHomeBoard() {
 }
 
 function renderRoundAction() {
-  els.newRoundButton.textContent = isDailyChallengeRound() ? "게임 포기" : "새 라운드";
+  els.newRoundButton.textContent = isDailyChallengeRound() ? "게임 포기" : "새 무작위 라운드";
 }
 
 function renderHomeChallenge() {
@@ -762,14 +817,19 @@ function shareRouteText(record) {
   const path = Array.isArray(record.path) && record.path.length > 0
     ? record.path
     : [record.startTitle || "-", record.goalTitle || "-"];
-  return compactPathLabel(path);
+  return path.join(" → ");
 }
 
 function shareUrlForRecord(record) {
   const url = new URL(window.location.origin || window.location.href);
   url.pathname = "/";
   url.search = "";
-  if (record.seed) url.searchParams.set("seed", record.seed);
+  if (record.seed) {
+    url.searchParams.set("seed", record.seed);
+  } else {
+    if (record.startTitle) url.searchParams.set("start", record.startTitle);
+    if (record.goalTitle) url.searchParams.set("goal", record.goalTitle);
+  }
   return url.toString();
 }
 
@@ -865,8 +925,7 @@ function drawShareCard(ctx, record) {
   ctx.font = "800 20px Inter, system-ui, sans-serif";
   ctx.fillText("PATH", 102, 482);
 
-  ctx.fillStyle = "#bad5cd";
-  drawFullPath(ctx, record.path, 102, 512, 955, 18, 3);
+  drawFullPathText(ctx, record.path, 102, 504, 955, 52);
 
   drawShareFooter(ctx, record);
 }
@@ -894,13 +953,6 @@ function drawRouteTicket(ctx, record) {
   const goalTitle = record.goalTitle || record.path?.[record.path.length - 1] || "-";
 
   drawRoundedRect(ctx, 102, 198, 996, 102, 16, "rgba(0, 194, 173, 0.08)", "rgba(120, 255, 226, 0.24)");
-
-  ctx.strokeStyle = "rgba(120, 255, 226, 0.14)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(588, 212);
-  ctx.lineTo(588, 286);
-  ctx.stroke();
 
   ctx.fillStyle = "#87fff0";
   ctx.font = "800 15px Inter, system-ui, sans-serif";
@@ -985,44 +1037,59 @@ function drawCenteredFittedText(ctx, text, centerX, y, maxWidth) {
   ctx.fillText(fitted, centerX - ctx.measureText(fitted).width / 2, y);
 }
 
-function drawFullPath(ctx, path, x, y, maxWidth, lineHeight, maxLines) {
+function drawFullPathText(ctx, path, x, y, maxWidth, maxHeight) {
   const items = Array.isArray(path) ? path.filter(Boolean) : [];
-  const tokens = items.length > 0 ? pathTokens(items) : ["-"];
-  let fontSize = 23;
+  const text = (items.length > 0 ? items : ["-"]).join(" → ");
+  let fontSize = 20;
   let lines = [];
+  let lineHeight = 24;
 
-  while (fontSize >= 15) {
-    ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
-    lines = wrapTokens(ctx, tokens, maxWidth);
-    if (lines.length <= maxLines) break;
-    fontSize -= 2;
+  while (fontSize >= 10) {
+    ctx.font = `800 ${fontSize}px Inter, system-ui, sans-serif`;
+    lineHeight = Math.ceil(fontSize * 1.18);
+    lines = wrapPathText(ctx, text, maxWidth);
+    if (lines.length * lineHeight <= maxHeight) break;
+    fontSize -= 1;
   }
 
-  ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
-  const fittedLines = lines.slice(0, maxLines);
-  for (let index = 0; index < fittedLines.length; index += 1) {
-    drawFittedText(ctx, fittedLines[index], x, y + index * lineHeight, maxWidth);
+  ctx.fillStyle = "#bad5cd";
+  ctx.font = `800 ${fontSize}px Inter, system-ui, sans-serif`;
+  for (let index = 0; index < lines.length; index += 1) {
+    ctx.fillText(lines[index], x, y + index * lineHeight + fontSize);
   }
 }
 
-function pathTokens(items) {
-  return items.flatMap((item, index) => (index === 0 ? [item] : ["→", item]));
-}
-
-function wrapTokens(ctx, tokens, maxWidth) {
+function wrapPathText(ctx, text, maxWidth) {
+  const words = String(text || "").split(" ");
   const lines = [];
   let line = "";
 
-  for (const token of tokens) {
-    const nextLine = line ? `${line} ${token}` : token;
+  for (const word of words) {
+    const nextLine = line ? `${line} ${word}` : word;
     if (line && ctx.measureText(nextLine).width > maxWidth) {
       lines.push(line);
-      line = token;
+      line = word;
+      continue;
+    }
+    line = nextLine;
+  }
+
+  if (line) lines.push(...breakLongLine(ctx, line, maxWidth));
+  return lines.flatMap((item) => breakLongLine(ctx, item, maxWidth));
+}
+
+function breakLongLine(ctx, text, maxWidth) {
+  const lines = [];
+  let line = "";
+  for (const char of String(text || "")) {
+    const nextLine = `${line}${char}`;
+    if (line && ctx.measureText(nextLine).width > maxWidth) {
+      lines.push(line);
+      line = char;
     } else {
       line = nextLine;
     }
   }
-
   if (line) lines.push(line);
   return lines;
 }
@@ -1040,18 +1107,6 @@ function drawRightAlignedFittedText(ctx, text, rightX, y, maxWidth) {
   }
   const fitted = `…${next}`;
   ctx.fillText(fitted, rightX - ctx.measureText(fitted).width, y);
-}
-
-function compactPathLabel(path) {
-  const items = Array.isArray(path) ? path.filter(Boolean) : [];
-  if (items.length <= 5) return items.join(" → ") || "-";
-  return [
-    items[0],
-    items[1],
-    `... ${items.length - 4}개 생략`,
-    items[items.length - 2],
-    items[items.length - 1]
-  ].join(" → ");
 }
 
 function compareScores(a, b) {
@@ -1220,7 +1275,6 @@ function elapsedSecondsForRound() {
 function setLoading(isLoading) {
   document.body.classList.toggle("is-loading", isLoading);
   els.startGameButton.disabled = isLoading;
-  els.seedGameButton.disabled = isLoading;
   els.seedStartButton.disabled = isLoading;
   els.dailyChallengeButton.disabled = isLoading;
   els.homeButton.disabled = isLoading;
