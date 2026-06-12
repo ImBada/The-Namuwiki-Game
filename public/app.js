@@ -68,6 +68,7 @@ const els = {
   resultKicker: document.querySelector(".result-kicker"),
   resultTitle: document.querySelector("#resultTitle"),
   resultSummary: document.querySelector("#resultSummary"),
+  multiplayerResultPanel: document.querySelector("#multiplayerResultPanel"),
   resultPathList: document.querySelector("#resultPathList"),
   shareResultButton: document.querySelector("#shareResultButton"),
   shareResultStatus: document.querySelector("#shareResultStatus"),
@@ -137,6 +138,10 @@ els.homeButton.addEventListener("click", returnHome);
 els.newRoundButton.addEventListener("click", handleRoundAction);
 els.dialogNewRoundButton.addEventListener("click", () => {
   els.resultDialog.close();
+  if (state.multiplayer.inGame) {
+    returnToMultiplayerLobby();
+    return;
+  }
   if (isDailyChallengeRound()) {
     returnHome();
   } else {
@@ -210,7 +215,10 @@ function createMultiplayerState() {
     roundPreviewStatus: "",
     dockOpen: false,
     unreadChatCount: 0,
-    chatMessages: []
+    chatMessages: [],
+    localResult: null,
+    opponentResult: null,
+    opponentForfeited: false
   };
 }
 
@@ -299,6 +307,14 @@ async function startSpecifiedRoundFromDialog(event) {
 
 function handleRoundAction() {
   if (state.multiplayer.inGame || isDailyChallengeRound()) {
+    if (state.multiplayer.inGame && !state.completed) {
+      sendDataChannelMessage({
+        type: "forfeit",
+        nickname: getNickname(),
+        clickCount: state.round?.clickCount || 0,
+        path: state.round?.path || []
+      });
+    }
     returnHome();
     return;
   }
@@ -320,11 +336,41 @@ function returnHome() {
   state.multiplayer.opponentClicks = 0;
   state.multiplayer.dockOpen = false;
   state.multiplayer.unreadChatCount = 0;
+  state.multiplayer.localResult = null;
+  state.multiplayer.opponentResult = null;
+  state.multiplayer.opponentForfeited = false;
   document.body.classList.remove("is-game", "is-loading");
   document.body.classList.add("is-home");
   clearRoundQueryParams();
   render();
   startHomeClock();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function returnToMultiplayerLobby() {
+  stopTimer();
+  state.round = null;
+  state.goal = null;
+  state.article = null;
+  state.completed = false;
+  state.completedElapsedSeconds = 0;
+  state.isMoving = false;
+  state.savedHistoryRoundId = "";
+  state.hasStarted = false;
+  state.homeView = "home";
+  state.multiplayer.inGame = false;
+  state.multiplayer.opponentClicks = 0;
+  state.multiplayer.dockOpen = false;
+  state.multiplayer.unreadChatCount = 0;
+  state.multiplayer.localResult = null;
+  state.multiplayer.opponentResult = null;
+  state.multiplayer.opponentForfeited = false;
+  document.body.classList.remove("is-game", "is-loading");
+  document.body.classList.add("is-home");
+  clearRoundQueryParams();
+  render();
+  renderMultiplayerLobby();
+  els.multiplayerDialog.showModal();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -487,6 +533,13 @@ async function moveTo(title) {
       stopTimer();
       if (isDailyChallengeRound()) {
         renderDailyResult();
+      } else if (state.multiplayer.inGame) {
+        state.multiplayer.localResult = createMultiplayerResult("local");
+        sendDataChannelMessage({
+          type: "finish",
+          result: state.multiplayer.localResult
+        });
+        renderMultiplayerResult();
       } else {
         renderResult();
       }
@@ -713,6 +766,7 @@ async function setupPeerConnection(isHost) {
       mp.status = "상대방 연결됨";
     }
     renderMultiplayerLobby();
+    renderMultiplayerDock();
   });
 
   if (isHost) {
@@ -750,6 +804,7 @@ function bindDataChannel(channel) {
     mp.connected = false;
     mp.status = "채널이 닫혔습니다.";
     renderMultiplayerLobby();
+    renderMultiplayerDock();
   });
 }
 
@@ -859,6 +914,31 @@ function handleDataChannelMessage(rawMessage) {
   if (message.type === "clicks") {
     state.multiplayer.opponentClicks = Number.parseInt(message.clickCount, 10) || 0;
     render();
+    return;
+  }
+
+  if (message.type === "finish") {
+    const result = normalizeMultiplayerResult(message.result, "opponent");
+    if (!result) return;
+    state.multiplayer.opponentResult = result;
+    state.multiplayer.opponentForfeited = false;
+    state.multiplayer.opponentClicks = result.clickCount;
+    addChatSystemMessage(`${result.nickname} 님이 목표에 도착했습니다.`);
+    render();
+    if (state.completed && state.multiplayer.localResult) {
+      renderMultiplayerResult();
+    }
+    return;
+  }
+
+  if (message.type === "forfeit") {
+    state.multiplayer.opponentForfeited = true;
+    state.multiplayer.opponentClicks = Number.parseInt(message.clickCount, 10) || state.multiplayer.opponentClicks;
+    addChatSystemMessage(`${message.nickname || "상대"} 님이 게임을 포기했습니다.`);
+    render();
+    if (state.completed && state.multiplayer.localResult) {
+      renderMultiplayerResult();
+    }
     return;
   }
 
@@ -1075,6 +1155,9 @@ async function startMultiplayerRound(message) {
   state.multiplayer.opponentClicks = 0;
   state.multiplayer.dockOpen = false;
   state.multiplayer.unreadChatCount = 0;
+  state.multiplayer.localResult = null;
+  state.multiplayer.opponentResult = null;
+  state.multiplayer.opponentForfeited = false;
   setSpecifiedRoundQuery(startTitle, goalTitle);
   els.multiplayerDialog.close();
   await startRound();
@@ -1159,9 +1242,7 @@ function renderMultiplayerDock() {
   els.multiplayerDock.classList.toggle("is-open", mp.dockOpen);
   els.multiplayerDockToggle.setAttribute("aria-expanded", String(mp.dockOpen));
   els.multiplayerDockBody.hidden = !mp.dockOpen;
-  els.dockChatSummary.textContent = mp.unreadChatCount > 0
-    ? `채팅 ${mp.unreadChatCount}`
-    : "채팅";
+  els.dockChatSummary.textContent = multiplayerDockSummary();
   els.dockChatInput.disabled = !mp.connected;
   els.dockChatForm.querySelector("button").disabled = !mp.connected;
   renderChatLog(els.dockChatLog);
@@ -1172,6 +1253,15 @@ function renderChatLog(chatLog) {
     ...state.multiplayer.chatMessages.slice(-60).map(createChatMessageElement)
   );
   chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function multiplayerDockSummary() {
+  const mp = state.multiplayer;
+  if (mp.unreadChatCount > 0) return `채팅 ${mp.unreadChatCount}`;
+  if (mp.opponentResult) return "상대 도착";
+  if (mp.opponentForfeited) return "상대 포기";
+  if (!mp.connected) return "연결 끊김";
+  return "채팅";
 }
 
 function createChatMessageElement(message) {
@@ -1520,6 +1610,8 @@ function renderResult() {
   els.shareResultStatus.textContent = "";
   els.dailyScoreForm.hidden = true;
   els.dailyRankPanel.hidden = true;
+  els.multiplayerResultPanel.hidden = true;
+  els.multiplayerResultPanel.replaceChildren();
   els.dialogNewRoundButton.hidden = false;
   els.dialogNewRoundButton.textContent = "다음 라운드";
   els.resultPathList.replaceChildren(
@@ -1538,6 +1630,8 @@ function renderDailyResult() {
   els.resultTitle.textContent = "기록 등록";
   els.resultSummary.textContent = `${formatElapsed()} · ${state.round?.clickCount || 0} 클릭 · ${path.length} 문서`;
   els.shareResultStatus.textContent = "";
+  els.multiplayerResultPanel.hidden = true;
+  els.multiplayerResultPanel.replaceChildren();
   els.dailyNicknameInput.value = getNickname();
   els.dailyScoreStatus.textContent = "";
   els.dailyScoreForm.hidden = false;
@@ -1552,6 +1646,136 @@ function renderDailyResult() {
       return item;
     })
   );
+}
+
+function renderMultiplayerResult() {
+  renderResult();
+  const mp = state.multiplayer;
+  const localResult = mp.localResult || createMultiplayerResult("local");
+  mp.localResult = localResult;
+  const opponentResult = mp.opponentResult;
+  const outcome = multiplayerOutcome(localResult, opponentResult, mp.opponentForfeited);
+
+  els.resultKicker.textContent = "멀티플레이 결과";
+  els.resultTitle.textContent = outcome.title;
+  els.resultSummary.textContent = outcome.summary;
+  els.dialogNewRoundButton.textContent = "대기방으로";
+  els.multiplayerResultPanel.hidden = false;
+  els.multiplayerResultPanel.replaceChildren(
+    createMultiplayerResultCard("나", localResult, outcome.localLabel),
+    createMultiplayerResultCard("상대", opponentResult, outcome.opponentLabel)
+  );
+}
+
+function createMultiplayerResult(side) {
+  const path = Array.isArray(state.round?.path) ? state.round.path : [];
+  return {
+    side,
+    nickname: getNickname(),
+    clickCount: state.round?.clickCount || 0,
+    elapsedSeconds: state.completedElapsedSeconds || elapsedSecondsForRound(),
+    pathLength: path.length,
+    path,
+    completedAt: new Date().toISOString()
+  };
+}
+
+function normalizeMultiplayerResult(result, side) {
+  if (!result || typeof result !== "object") return null;
+  const path = Array.isArray(result.path)
+    ? result.path.map((title) => String(title || "")).filter(Boolean).slice(0, 200)
+    : [];
+  return {
+    side,
+    nickname: normalizeNickname(result.nickname) || "상대",
+    clickCount: Number.parseInt(result.clickCount, 10) || 0,
+    elapsedSeconds: Number.parseInt(result.elapsedSeconds, 10) || 0,
+    pathLength: Number.parseInt(result.pathLength, 10) || path.length,
+    path,
+    completedAt: String(result.completedAt || "")
+  };
+}
+
+function multiplayerOutcome(localResult, opponentResult, opponentForfeited) {
+  if (opponentForfeited) {
+    return {
+      title: "상대 포기",
+      summary: "상대가 게임을 나갔습니다. 내 기록은 저장되었습니다.",
+      localLabel: "완주",
+      opponentLabel: "포기"
+    };
+  }
+  if (!opponentResult) {
+    return {
+      title: "먼저 도착",
+      summary: "상대가 아직 플레이 중입니다. 결과는 도착하는 즉시 갱신됩니다.",
+      localLabel: "도착",
+      opponentLabel: "진행 중"
+    };
+  }
+
+  const comparison = compareMultiplayerResults(localResult, opponentResult);
+  if (comparison < 0) {
+    return {
+      title: "승리",
+      summary: "클릭 수, 시간, 경로 길이 순서로 비교했습니다.",
+      localLabel: "승리",
+      opponentLabel: "완주"
+    };
+  }
+  if (comparison > 0) {
+    return {
+      title: "패배",
+      summary: "클릭 수, 시간, 경로 길이 순서로 비교했습니다.",
+      localLabel: "완주",
+      opponentLabel: "승리"
+    };
+  }
+  return {
+    title: "무승부",
+    summary: "클릭 수와 시간이 같습니다.",
+    localLabel: "동점",
+    opponentLabel: "동점"
+  };
+}
+
+function compareMultiplayerResults(a, b) {
+  return (
+    (a.clickCount || 0) - (b.clickCount || 0) ||
+    (a.elapsedSeconds || 0) - (b.elapsedSeconds || 0) ||
+    (a.pathLength || 0) - (b.pathLength || 0) ||
+    String(a.completedAt || "").localeCompare(String(b.completedAt || ""))
+  );
+}
+
+function createMultiplayerResultCard(label, result, statusLabel) {
+  const card = document.createElement("article");
+  card.className = `multiplayer-result-card ${result ? "" : "is-pending"}`;
+
+  const heading = document.createElement("div");
+  const title = document.createElement("strong");
+  const badge = document.createElement("span");
+  title.textContent = result?.nickname ? `${label} · ${result.nickname}` : label;
+  badge.textContent = statusLabel;
+  heading.append(title, badge);
+
+  const stats = document.createElement("p");
+  stats.textContent = result
+    ? `${result.clickCount || 0} 클릭 · ${formatSeconds(result.elapsedSeconds || 0)} · ${result.pathLength || result.path.length} 문서`
+    : "결과 대기 중";
+
+  const path = document.createElement("ol");
+  path.className = "multiplayer-result-path";
+  for (const titleText of result?.path || []) {
+    const item = document.createElement("li");
+    item.textContent = titleText;
+    item.title = titleText;
+    path.append(item);
+  }
+
+  card.append(heading, stats);
+  if (result?.path?.length) card.append(path);
+  return card;
 }
 
 async function shareCurrentResult() {
@@ -2161,6 +2385,14 @@ function renderStatus(isLoading = false) {
   }
   if (state.completed) {
     els.roundStatus.textContent = "도착";
+    return;
+  }
+  if (state.multiplayer.inGame && state.multiplayer.opponentForfeited) {
+    els.roundStatus.textContent = "상대 포기";
+    return;
+  }
+  if (state.multiplayer.inGame && state.multiplayer.opponentResult) {
+    els.roundStatus.textContent = "상대 도착";
     return;
   }
   els.roundStatus.textContent = state.round ? "플레이 중" : "라운드 준비";

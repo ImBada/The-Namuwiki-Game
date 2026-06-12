@@ -2440,6 +2440,89 @@ body.is-loading .game-wiki-link {
   list-style: none;
 }
 
+.multiplayer-result-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.multiplayer-result-panel[hidden] {
+  display: none;
+}
+
+.multiplayer-result-card {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  border: 1px solid rgba(120, 255, 226, 0.2);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.055);
+  padding: 10px;
+}
+
+.multiplayer-result-card.is-pending {
+  border-color: rgba(255, 176, 46, 0.22);
+  background: rgba(255, 176, 46, 0.08);
+}
+
+.multiplayer-result-card > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.multiplayer-result-card strong {
+  overflow: hidden;
+  color: #f8fff9;
+  font-size: 13px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multiplayer-result-card span {
+  flex: 0 0 auto;
+  border: 1px solid rgba(120, 255, 226, 0.24);
+  border-radius: 999px;
+  background: rgba(0, 194, 173, 0.1);
+  color: #87fff0;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.multiplayer-result-card p {
+  margin: 0;
+  color: #bad5cd;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.multiplayer-result-path {
+  display: grid;
+  gap: 5px;
+  max-height: 116px;
+  margin: 0;
+  overflow: auto;
+  padding: 0;
+  list-style: none;
+}
+
+.multiplayer-result-path li {
+  overflow: hidden;
+  border: 1px solid rgba(120, 255, 226, 0.14);
+  border-radius: 6px;
+  background: rgba(2, 8, 8, 0.18);
+  padding: 6px 7px;
+  color: #bad5cd;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .result-path-list li {
   overflow: hidden;
   border: 1px solid rgba(120, 255, 226, 0.18);
@@ -2656,6 +2739,7 @@ body.is-loading .game-wiki-link {
   }
 
   .result-actions,
+  .multiplayer-result-panel,
   .multiplayer-lobby,
   .multiplayer-room-grid,
   .join-room-row,
