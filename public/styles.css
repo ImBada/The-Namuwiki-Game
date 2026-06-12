@@ -1261,44 +1261,80 @@ body.is-loading .game-wiki-link {
 .wiki-article .wiki-image-align-normal,
 .wiki-article .wiki-image-align-left,
 .wiki-article .wiki-image-align-right,
-.wiki-article .wiki-image-align-center {
+.wiki-article .wiki-image-align-center,
+.wiki-article .HuBzh58z,
+.wiki-article .iLfWWmSy,
+.wiki-article .M0qq8yfn,
+.wiki-article .rfeFloO3,
+.wiki-article .oepsuyMR,
+.wiki-article .hp2z6Snw,
+.wiki-article .jJFF-Zbl {
   font-size: 0;
   max-width: 100%;
   vertical-align: middle;
 }
 
 .wiki-article .wiki-image-align-normal,
-.wiki-article .wiki-image-wrapper {
+.wiki-article .wiki-image-wrapper,
+.wiki-article .YHi307Mf {
   display: inline-block;
   overflow: hidden;
   position: relative;
   vertical-align: middle;
 }
 
-.wiki-article .wiki-image-align-normal {
+.wiki-article .wiki-image-align-normal,
+.wiki-article .HuBzh58z {
   display: inline-block;
 }
 
-.wiki-article .wiki-image-align-left {
+.wiki-article .wiki-image-align-left,
+.wiki-article .oepsuyMR {
   display: block;
   float: left;
   margin: 0;
 }
 
-.wiki-article .wiki-image-align-right {
+.wiki-article .wiki-image-align-right,
+.wiki-article .M0qq8yfn {
   display: block;
   float: right;
   margin: 0 0 12px 16px;
 }
 
-.wiki-article .wiki-image-align-center {
+.wiki-article .wiki-image-align-center,
+.wiki-article .rfeFloO3,
+.wiki-article .hp2z6Snw {
   display: block;
   margin: 12px auto;
   text-align: center;
 }
 
-.wiki-article .wiki-image-align-center .wiki-image-wrapper {
+.wiki-article .wiki-image-align-center .wiki-image-wrapper,
+.wiki-article .rfeFloO3 .YHi307Mf,
+.wiki-article .hp2z6Snw .YHi307Mf {
   display: inline-block;
+}
+
+.wiki-article .wiki-image-align-top,
+.wiki-article .jJFF-Zbl {
+  vertical-align: top;
+}
+
+.wiki-article .wiki-image-align-bottom,
+.wiki-article .iLfWWmSy {
+  vertical-align: bottom;
+}
+
+.wiki-article .wiki-image,
+.wiki-article .LhxTIpX9 {
+  inset: 0;
+  position: absolute;
+}
+
+.wiki-article .wiki-image-loading,
+.wiki-article .DeArQah4 {
+  display: none;
 }
 
 .wiki-article img {
@@ -1340,7 +1376,59 @@ body.is-loading .game-wiki-link {
   margin: 10px auto;
 }
 
-.wiki-article table {
+.wiki-article .wiki-size-up-1,
+.wiki-article .g28dLhH4 {
+  font-size: 1.2888888889em;
+}
+
+.wiki-article .wiki-size-up-2,
+.wiki-article .KsHQPl7b {
+  font-size: 1.3888888889em;
+}
+
+.wiki-article .wiki-size-up-3,
+.wiki-article .-PBqI9Gq {
+  font-size: 1.4814444444em;
+}
+
+.wiki-article .wiki-size-up-4,
+.wiki-article .JiifOGSJ {
+  font-size: 1.574em;
+}
+
+.wiki-article .wiki-size-up-5,
+.wiki-article .mzksOUKp {
+  font-size: 1.6666666667em;
+}
+
+.wiki-article .wiki-size-down-1,
+.wiki-article .FlhZEinM {
+  font-size: 0.9258888889em;
+}
+
+.wiki-article .wiki-size-down-2,
+.wiki-article .lx1xiVFH {
+  font-size: 0.8333333333em;
+}
+
+.wiki-article .wiki-size-down-3,
+.wiki-article .JAp5bdeb {
+  font-size: 0.7406666667em;
+}
+
+.wiki-article .wiki-size-down-4,
+.wiki-article .pwSIwYJf {
+  font-size: 0.6481111111em;
+}
+
+.wiki-article .wiki-size-down-5,
+.wiki-article .fdJspFNl {
+  font-size: 0.6222222222em;
+}
+
+.wiki-article table,
+.wiki-article .wiki-table,
+.wiki-article ._5d8En-dC {
   width: 100%;
   max-width: 100%;
   border-collapse: collapse;
@@ -1349,14 +1437,16 @@ body.is-loading .game-wiki-link {
   table-layout: auto;
 }
 
-.wiki-article .wiki-table-wrap {
+.wiki-article .wiki-table-wrap,
+.wiki-article .fLK1WVog {
   display: block;
   margin: 10px 0;
   max-width: 100%;
   overflow-x: auto;
 }
 
-.wiki-article .wiki-table-wrap.table-right {
+.wiki-article .wiki-table-wrap.table-right,
+.wiki-article .fLK1WVog.YMKO51Ba {
   float: right;
   margin: 0 0 20px 20px;
 }
@@ -1366,7 +1456,8 @@ body.is-loading .game-wiki-link {
   margin: 0 20px 20px 0;
 }
 
-.wiki-article .wiki-table-wrap.table-center {
+.wiki-article .wiki-table-wrap.table-center,
+.wiki-article .fLK1WVog.wsHfjvwM {
   margin: 10px auto;
 }
 
@@ -1377,17 +1468,27 @@ body.is-loading .game-wiki-link {
   vertical-align: top;
 }
 
-.wiki-article .wiki-table-nopadding {
+.wiki-article .wiki-table-nopadding,
+.wiki-article .YPmHKOfv {
   padding: 0 !important;
 }
 
 .wiki-article .wiki-table td .wiki-paragraph,
-.wiki-article .wiki-table th .wiki-paragraph {
+.wiki-article .wiki-table th .wiki-paragraph,
+.wiki-article ._5d8En-dC td .NcVEjj4t,
+.wiki-article ._5d8En-dC th .NcVEjj4t {
   margin: 0;
 }
 
-.wiki-article .wiki-table .wiki-table-keepall {
+.wiki-article .wiki-table .wiki-table-keepall,
+.wiki-article ._5d8En-dC ._3pnyYLIh {
   word-break: keep-all;
+}
+
+.wiki-article .wiki-table img,
+.wiki-article ._5d8En-dC img {
+  display: inline-block;
+  max-width: none;
 }
 
 .wiki-article .wiki-horizontal-folding-navbox {

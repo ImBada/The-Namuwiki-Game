@@ -115,6 +115,20 @@ test("sanitizes article HTML and rewrites playable links", () => {
   assert.doesNotMatch(html, /WU8NJg0C|&nbsp;<\/div>/);
 });
 
+test("promotes NamuWiki lazy images without keeping loading-only classes", () => {
+  const html = sanitizeArticleHtml(`
+    <span class="HuBzh58z" style="width:20px;">
+      <span class="YHi307Mf" style="width: 100%;">
+        <img class="LhxTIpX9 DeArQah4" width="100%" src="data:image/svg+xml;base64,placeholder" data-src="//i.namu.wiki/i/road.svg" alt="road">
+      </span>
+    </span>
+  `);
+
+  assert.match(html, /src="https:\/\/i\.namu\.wiki\/i\/road\.svg"/);
+  assert.match(html, /class="LhxTIpX9"/);
+  assert.doesNotMatch(html, /DeArQah4|wiki-image-loading/);
+});
+
 test("extracts the article body when a NamuWiki content container exists", () => {
   const html = `
     <main>

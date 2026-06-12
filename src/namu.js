@@ -163,7 +163,7 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
       if (!/src=/i.test(updatedTag)) {
         updatedTag = updatedTag.replace("<img", `<img src="${realSrc}"`);
       }
-      return updatedTag;
+      return removeClassNames(updatedTag, ["DeArQah4", "wiki-image-loading"]);
     }
     return imgTag;
   });
@@ -238,6 +238,17 @@ function escapeAttribute(value) {
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function removeClassNames(tag, classNames) {
+  return String(tag || "").replace(/\sclass=(["'])([^"']*)\1/i, (match, quote, value) => {
+    const remaining = value
+      .split(/\s+/)
+      .filter((className) => className && !classNames.includes(className))
+      .join(" ");
+
+    return remaining ? ` class=${quote}${remaining}${quote}` : "";
+  });
 }
 
 function normalizeImageUrl(url) {
