@@ -1706,9 +1706,9 @@ function drawShareCard(ctx, record) {
   ctx.fillRect(0, 0, 1200, 630);
 
   const bgGradient = ctx.createLinearGradient(0, 0, 1200, 630);
-  bgGradient.addColorStop(0, "#12352f");
-  bgGradient.addColorStop(0.45, "#081817");
-  bgGradient.addColorStop(1, "#191d13");
+  bgGradient.addColorStop(0, "#123d36");
+  bgGradient.addColorStop(0.52, "#071817");
+  bgGradient.addColorStop(1, "#161d12");
   ctx.fillStyle = bgGradient;
   ctx.fillRect(0, 0, 1200, 630);
 
@@ -1727,7 +1727,7 @@ function drawShareCard(ctx, record) {
     ctx.stroke();
   }
 
-  drawRoundedRect(ctx, 70, 58, 1060, 514, 24, "rgba(9, 31, 28, 0.9)", "rgba(120, 255, 226, 0.32)");
+  drawRoundedRect(ctx, 70, 58, 1060, 514, 24, "rgba(7, 29, 27, 0.92)", "rgba(120, 255, 226, 0.34)");
   drawBrandHeader(ctx, record);
 
   drawRouteTicket(ctx, record);
@@ -1737,54 +1737,49 @@ function drawShareCard(ctx, record) {
     ["시간", formatSeconds(record.elapsedSeconds || 0)],
     ["문서", `${record.pathLength || record.path.length}`]
   ];
-  stats.forEach((stat, index) => drawStatBox(ctx, 102 + index * 210, 338, stat[0], stat[1]));
+  stats.forEach((stat, index) => drawStatBox(ctx, 102 + index * 345, 334, 306, stat[0], stat[1]));
 
   ctx.fillStyle = "#87fff0";
-  ctx.font = "800 20px Inter, system-ui, sans-serif";
-  ctx.fillText("PATH", 102, 482);
+  ctx.font = "900 19px Inter, system-ui, sans-serif";
+  ctx.fillText("PATH", 102, 474);
 
-  drawFullPathText(ctx, record.path, 102, 504, 955, 52);
+  drawFullPathText(ctx, record.path, 102, 494, 996, 56);
 
   drawShareFooter(ctx, record);
 }
 
 function drawBrandHeader(ctx, record) {
-  drawBadge(ctx, 102, 96, record.modeLabel || "클리어");
-  ctx.fillStyle = "#5fffea";
-  ctx.font = "900 34px Inter, system-ui, sans-serif";
-  ctx.fillText("N", 908, 124);
-  ctx.fillStyle = "#ffcf7a";
-  ctx.font = "800 24px Inter, system-ui, sans-serif";
-  ctx.fillText("나무위키 게임", 950, 123);
+  ctx.fillStyle = "#87fff0";
+  ctx.font = "900 18px Inter, system-ui, sans-serif";
+  ctx.fillText("클리어", 102, 119);
 
-  const modeText = record.modeLabel || "랜덤";
-  ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
-  ctx.font = "700 16px Inter, system-ui, sans-serif";
-  const modeWidth = Math.min(338, Math.ceil(ctx.measureText(modeText).width) + 44);
-  const modeX = 1098 - modeWidth;
-  drawRoundedRect(ctx, modeX, 148, modeWidth, 34, 8, "rgba(255, 255, 255, 0.05)", "rgba(120, 255, 226, 0.16)");
-  drawFittedText(ctx, modeText, modeX + 22, 171, modeWidth - 44);
+  ctx.fillStyle = "#5fffea";
+  ctx.font = "900 38px Inter, system-ui, sans-serif";
+  ctx.fillText("N", 842, 124);
+  ctx.fillStyle = "#ffcf7a";
+  ctx.font = "900 25px Inter, system-ui, sans-serif";
+  ctx.fillText("나무위키 게임", 890, 123);
 }
 
 function drawRouteTicket(ctx, record) {
   const startTitle = record.startTitle || record.path?.[0] || "-";
   const goalTitle = record.goalTitle || record.path?.[record.path.length - 1] || "-";
 
-  drawRoundedRect(ctx, 102, 198, 996, 102, 16, "rgba(0, 194, 173, 0.08)", "rgba(120, 255, 226, 0.24)");
+  drawRoundedRect(ctx, 102, 184, 996, 116, 16, "rgba(0, 194, 173, 0.09)", "rgba(120, 255, 226, 0.26)");
 
   ctx.fillStyle = "#87fff0";
-  ctx.font = "800 15px Inter, system-ui, sans-serif";
-  ctx.fillText("출발", 132, 228);
-  ctx.fillText("도착", 680, 228);
+  ctx.font = "900 16px Inter, system-ui, sans-serif";
+  ctx.fillText("출발", 132, 220);
+  ctx.fillText("도착", 680, 220);
 
   ctx.fillStyle = "#f8fff9";
-  ctx.font = "900 40px Inter, system-ui, sans-serif";
-  drawFittedText(ctx, startTitle, 132, 270, 380);
-  drawFittedText(ctx, goalTitle, 680, 270, 390);
+  ctx.font = "900 43px Inter, system-ui, sans-serif";
+  drawFittedText(ctx, startTitle, 132, 268, 390);
+  drawFittedText(ctx, goalTitle, 680, 268, 390);
 
   ctx.fillStyle = "#ffcf7a";
-  ctx.font = "900 42px Inter, system-ui, sans-serif";
-  drawCenteredFittedText(ctx, "→", 589, 270, 48);
+  ctx.font = "900 46px Inter, system-ui, sans-serif";
+  drawCenteredFittedText(ctx, "→", 589, 268, 52);
 }
 
 function drawShareFooter(ctx, record) {
@@ -1796,22 +1791,14 @@ function drawShareFooter(ctx, record) {
   ctx.stroke();
 }
 
-function drawStatBox(ctx, x, y, label, value) {
-  drawRoundedRect(ctx, x, y, 166, 92, 12, "rgba(255, 255, 255, 0.06)", "rgba(120, 255, 226, 0.22)");
+function drawStatBox(ctx, x, y, width, label, value) {
+  drawRoundedRect(ctx, x, y, width, 86, 12, "rgba(255, 255, 255, 0.055)", "rgba(120, 255, 226, 0.22)");
   ctx.fillStyle = "#95bbb1";
-  ctx.font = "800 18px Inter, system-ui, sans-serif";
-  ctx.fillText(label, x + 20, y + 32);
+  ctx.font = "900 17px Inter, system-ui, sans-serif";
+  ctx.fillText(label, x + 20, y + 30);
   ctx.fillStyle = "#f8fff9";
   ctx.font = "900 32px Inter, system-ui, sans-serif";
-  drawCenteredFittedText(ctx, value, x + 83, y + 70, 126);
-}
-
-function drawBadge(ctx, x, y, text) {
-  ctx.font = "800 18px Inter, system-ui, sans-serif";
-  const width = Math.min(260, Math.max(112, ctx.measureText(text).width + 34));
-  drawRoundedRect(ctx, x, y, width, 38, 19, "rgba(0, 194, 173, 0.16)", "rgba(0, 194, 173, 0.5)");
-  ctx.fillStyle = "#87fff0";
-  ctx.fillText(text, x + 17, y + 25);
+  drawCenteredFittedText(ctx, value, x + width / 2, y + 68, width - 40);
 }
 
 function drawRoundedRect(ctx, x, y, width, height, radius, fill, stroke) {
