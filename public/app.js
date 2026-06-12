@@ -84,6 +84,8 @@ const els = {
   dailyScoreForm: document.querySelector("#dailyScoreForm"),
   dailyNicknameInput: document.querySelector("#dailyNicknameInput"),
   dailyScoreStatus: document.querySelector("#dailyScoreStatus"),
+  dailyRankPanel: document.querySelector("#dailyRankPanel"),
+  dailyRankText: document.querySelector("#dailyRankText"),
   roundStatus: document.querySelector("#roundStatus"),
   startTitle: document.querySelector("#startTitle"),
   goalTitle: document.querySelector("#goalTitle"),
@@ -108,7 +110,11 @@ els.homeButton.addEventListener("click", returnHome);
 els.newRoundButton.addEventListener("click", handleRoundAction);
 els.dialogNewRoundButton.addEventListener("click", () => {
   els.resultDialog.close();
-  startFreshRound();
+  if (isDailyChallengeRound()) {
+    returnHome();
+  } else {
+    startFreshRound();
+  }
 });
 els.copySeedButton.addEventListener("click", copyRoundSeed);
 els.shareResultButton.addEventListener("click", shareCurrentResult);
@@ -697,7 +703,9 @@ function renderResult() {
   els.resultSummary.textContent = `${formatElapsed()} · ${state.round?.clickCount || 0} 클릭 · ${path.length} 문서`;
   els.shareResultStatus.textContent = "";
   els.dailyScoreForm.hidden = true;
+  els.dailyRankPanel.hidden = true;
   els.dialogNewRoundButton.hidden = false;
+  els.dialogNewRoundButton.textContent = "다음 라운드";
   renderResultSeed();
   els.resultPathList.replaceChildren(
     ...path.map((title) => {
@@ -718,7 +726,9 @@ function renderDailyResult() {
   els.dailyNicknameInput.value = getNickname();
   els.dailyScoreStatus.textContent = "";
   els.dailyScoreForm.hidden = false;
+  els.dailyRankPanel.hidden = true;
   els.dialogNewRoundButton.hidden = true;
+  els.dialogNewRoundButton.textContent = "메인으로";
   renderResultSeed();
   els.resultPathList.replaceChildren(
     ...path.map((title) => {
@@ -1160,13 +1170,31 @@ async function submitDailyScoreFromDialog(event) {
     state.dailyScores = Array.isArray(data.scores) ? data.scores.sort(compareScores) : [];
     state.dailyScoresSeed = state.round.seed;
     renderDailyLeaderboard(state.round.seed);
-    els.resultDialog.close();
-    returnHome();
+    renderDailyRank(data.rank, data.scores?.length || 0);
   } catch (error) {
     els.dailyScoreStatus.textContent = error.message;
   } finally {
     els.dailyScoreForm.querySelector("button").disabled = false;
   }
+}
+
+function renderDailyRank(rank, visibleScoreCount) {
+  const normalizedRank = Number.parseInt(rank, 10);
+  els.dailyScoreForm.hidden = true;
+  els.dailyRankPanel.hidden = false;
+  els.dialogNewRoundButton.hidden = false;
+  els.dialogNewRoundButton.textContent = "메인으로";
+
+  if (Number.isFinite(normalizedRank) && normalizedRank > 0) {
+    els.dailyRankText.textContent = `${normalizedRank}위`;
+    els.dailyScoreStatus.textContent = visibleScoreCount >= normalizedRank
+      ? "기록이 오늘의 순위표에 등록되었습니다."
+      : "기록이 등록되었습니다.";
+    return;
+  }
+
+  els.dailyRankText.textContent = "-";
+  els.dailyScoreStatus.textContent = "기록이 등록되었습니다.";
 }
 
 function isDailyChallengeRound() {

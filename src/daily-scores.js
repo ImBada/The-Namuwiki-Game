@@ -48,16 +48,20 @@ export async function submitDailyScore(body) {
     completedAt: new Date().toISOString()
   };
 
-  const leaderboard = await queueDailyScoreWrite(async () => {
+  const result = await queueDailyScoreWrite(async () => {
     const store = await readDailyScoreStore();
     const todayOnlyStore = { [seed]: normalizeDailyScores(store[seed] || []) };
-    const scores = [...todayOnlyStore[seed], score].sort(compareScores).slice(0, 100);
-    todayOnlyStore[seed] = scores;
+    const sortedScores = [...todayOnlyStore[seed], score].sort(compareScores);
+    const rank = sortedScores.findIndex((item) => item.id === score.id) + 1;
+    todayOnlyStore[seed] = sortedScores.slice(0, 100);
     await writeDailyScoreStore(todayOnlyStore);
-    return scores.slice(0, 20);
+    return {
+      rank,
+      scores: sortedScores.slice(0, 20)
+    };
   });
 
-  return { seed, score, scores: leaderboard };
+  return { seed, score, rank: result.rank, scores: result.scores };
 }
 
 function queueDailyScoreWrite(task) {

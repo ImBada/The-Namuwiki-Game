@@ -2097,6 +2097,31 @@ body.is-loading .game-wiki-link {
   font-size: 12px;
 }
 
+.daily-rank-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  border: 1px solid rgba(0, 194, 173, 0.38);
+  border-radius: var(--radius);
+  background: rgba(0, 194, 173, 0.12);
+  padding: 13px 14px;
+}
+
+.daily-rank-panel span {
+  color: #95bbb1;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.daily-rank-panel strong {
+  color: #87fff0;
+  font-size: 26px;
+  font-weight: 950;
+  line-height: 1;
+}
+
 .result-dialog::backdrop,
 .game-mode-dialog::backdrop,
 .seed-dialog::backdrop {
