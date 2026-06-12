@@ -1351,8 +1351,16 @@ body.is-loading .game-wiki-link {
   vertical-align: middle;
 }
 
+.wiki-article span[style*="height:"] {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
 .wiki-article span[style*="width:"] > span[style*="width: 100%"],
-.wiki-article span[style*="width:"] > span[style*="width:100%"] {
+.wiki-article span[style*="width:"] > span[style*="width:100%"],
+.wiki-article span[style*="height:"] > span[style*="height: 100%"],
+.wiki-article span[style*="height:"] > span[style*="height:100%"] {
   display: inline-block;
   line-height: 0;
   max-width: 100%;
@@ -1365,9 +1373,17 @@ body.is-loading .game-wiki-link {
   height: auto;
 }
 
+.wiki-article span[style*="height:"] img[height="100%"] {
+  width: auto;
+  height: 100% !important;
+  max-height: 100%;
+}
+
 .wiki-article span[style*="width:"] > span[style*="width: 100%"] > img[src^="data:image/svg+xml"],
-.wiki-article span[style*="width:"] > span[style*="width:100%"] > img[src^="data:image/svg+xml"] {
-  display: none;
+.wiki-article span[style*="width:"] > span[style*="width:100%"] > img[src^="data:image/svg+xml"],
+.wiki-article span[style*="height:"] > span[style*="height: 100%"] > img[src^="data:image/svg+xml"],
+.wiki-article span[style*="height:"] > span[style*="height:100%"] > img[src^="data:image/svg+xml"] {
+  visibility: hidden;
 }
 
 .wiki-article > img,
