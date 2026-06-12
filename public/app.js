@@ -1737,68 +1737,74 @@ function drawShareCard(ctx, record) {
     ["시간", formatSeconds(record.elapsedSeconds || 0)],
     ["문서", `${record.pathLength || record.path.length}`]
   ];
-  stats.forEach((stat, index) => drawStatBox(ctx, 102 + index * 345, 334, 306, stat[0], stat[1]));
+  stats.forEach((stat, index) => drawStatBox(ctx, 102 + index * 348, 306, 300, stat[0], stat[1]));
 
-  ctx.fillStyle = "#87fff0";
-  ctx.font = "900 19px Inter, system-ui, sans-serif";
-  ctx.fillText("PATH", 102, 474);
-
-  drawFullPathText(ctx, record.path, 102, 494, 996, 56);
+  drawPathPanel(ctx, record);
 
   drawShareFooter(ctx, record);
 }
 
 function drawBrandHeader(ctx, record) {
   ctx.fillStyle = "#87fff0";
-  ctx.font = "900 18px Inter, system-ui, sans-serif";
-  ctx.fillText("클리어", 102, 119);
-
-  ctx.fillStyle = "#5fffea";
   ctx.font = "900 38px Inter, system-ui, sans-serif";
-  ctx.fillText("N", 842, 124);
+  ctx.fillText("N", 102, 124);
   ctx.fillStyle = "#ffcf7a";
   ctx.font = "900 25px Inter, system-ui, sans-serif";
-  ctx.fillText("나무위키 게임", 890, 123);
+  ctx.fillText("나무위키 게임", 150, 123);
+
+  ctx.fillStyle = "#87fff0";
+  ctx.font = "900 18px Inter, system-ui, sans-serif";
+  drawRightAlignedFittedText(ctx, "클리어", 1098, 122, 180);
 }
 
 function drawRouteTicket(ctx, record) {
   const startTitle = record.startTitle || record.path?.[0] || "-";
   const goalTitle = record.goalTitle || record.path?.[record.path.length - 1] || "-";
 
-  drawRoundedRect(ctx, 102, 184, 996, 116, 16, "rgba(0, 194, 173, 0.09)", "rgba(120, 255, 226, 0.26)");
+  drawRoundedRect(ctx, 102, 156, 996, 118, 16, "rgba(0, 194, 173, 0.1)", "rgba(120, 255, 226, 0.28)");
 
   ctx.fillStyle = "#87fff0";
   ctx.font = "900 16px Inter, system-ui, sans-serif";
-  ctx.fillText("출발", 132, 220);
-  ctx.fillText("도착", 680, 220);
+  ctx.fillText("출발", 132, 193);
+  ctx.fillText("도착", 680, 193);
 
   ctx.fillStyle = "#f8fff9";
   ctx.font = "900 43px Inter, system-ui, sans-serif";
-  drawFittedText(ctx, startTitle, 132, 268, 390);
-  drawFittedText(ctx, goalTitle, 680, 268, 390);
+  drawFittedText(ctx, startTitle, 132, 242, 390);
+  drawFittedText(ctx, goalTitle, 680, 242, 390);
 
   ctx.fillStyle = "#ffcf7a";
   ctx.font = "900 46px Inter, system-ui, sans-serif";
-  drawCenteredFittedText(ctx, "→", 589, 268, 52);
+  drawCenteredFittedText(ctx, "→", 589, 242, 52);
+}
+
+function drawPathPanel(ctx, record) {
+  drawRoundedRect(ctx, 102, 420, 996, 102, 14, "rgba(0, 194, 173, 0.055)", "rgba(120, 255, 226, 0.16)");
+
+  ctx.fillStyle = "#87fff0";
+  ctx.font = "900 18px Inter, system-ui, sans-serif";
+  ctx.fillText("PATH", 126, 452);
+
+  drawFullPathText(ctx, record.path, 126, 470, 948, 38);
 }
 
 function drawShareFooter(ctx, record) {
   ctx.strokeStyle = "rgba(120, 255, 226, 0.16)";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(102, 562);
-  ctx.lineTo(1098, 562);
+  ctx.moveTo(102, 542);
+  ctx.lineTo(1098, 542);
   ctx.stroke();
 }
 
 function drawStatBox(ctx, x, y, width, label, value) {
-  drawRoundedRect(ctx, x, y, width, 86, 12, "rgba(255, 255, 255, 0.055)", "rgba(120, 255, 226, 0.22)");
+  drawRoundedRect(ctx, x, y, width, 80, 12, "rgba(255, 255, 255, 0.055)", "rgba(120, 255, 226, 0.22)");
   ctx.fillStyle = "#95bbb1";
   ctx.font = "900 17px Inter, system-ui, sans-serif";
   ctx.fillText(label, x + 20, y + 30);
   ctx.fillStyle = "#f8fff9";
-  ctx.font = "900 32px Inter, system-ui, sans-serif";
-  drawCenteredFittedText(ctx, value, x + width / 2, y + 68, width - 40);
+  ctx.font = "900 30px Inter, system-ui, sans-serif";
+  drawCenteredFittedText(ctx, value, x + width / 2, y + 64, width - 40);
 }
 
 function drawRoundedRect(ctx, x, y, width, height, radius, fill, stroke) {
