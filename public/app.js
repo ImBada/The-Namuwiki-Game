@@ -1656,7 +1656,9 @@ async function shareRecordToTwitter(record, options = {}) {
   if (!normalizedRecord) return;
 
   const originalText = button?.textContent || "";
-  setShareStatus(statusElement, "공유 이미지를 만드는 중입니다.");
+  setShareStatus(statusElement, canCopyImageToClipboard()
+    ? "공유 이미지를 만들고 클립보드에 복사할 준비 중입니다."
+    : "공유 이미지를 만드는 중입니다.");
   if (button) {
     button.disabled = true;
     button.textContent = "준비 중";
@@ -1670,7 +1672,7 @@ async function shareRecordToTwitter(record, options = {}) {
     if (canCopyImageToClipboard()) {
       await copyImageToClipboard(blob);
       openTwitterIntent(shareText, shareUrl);
-      setShareStatus(statusElement, "이미지를 클립보드에 복사하고 X 작성창을 열었습니다.");
+      setShareStatus(statusElement, "이미지를 클립보드에 복사했습니다. X 작성창에 붙여넣어 주세요.");
       return;
     }
 
@@ -1694,16 +1696,22 @@ function setShareStatus(statusElement, message) {
 }
 
 function shareTextForRecord(record) {
-  const route = shareRouteText(record);
+  const route = shareTweetRouteText(record);
   const mode = record.modeLabel || historyModeLabel(record.seed || "");
   return `나무위키 게임 ${mode} 클리어!\n${route}\n${record.clickCount || 0} 클릭 · ${formatSeconds(record.elapsedSeconds || 0)}\n`;
 }
 
-function shareRouteText(record) {
+function shareTweetRouteText(record) {
+  const path = shareRoutePath(record);
+  if (path.length <= 2) return path.join(" → ");
+  return `${path[0]} → … → ${path[path.length - 1]}`;
+}
+
+function shareRoutePath(record) {
   const path = Array.isArray(record.path) && record.path.length > 0
     ? record.path
     : [record.startTitle || "-", record.goalTitle || "-"];
-  return path.join(" → ");
+  return path.map((title) => title || "-");
 }
 
 function shareUrlForRecord(record) {
