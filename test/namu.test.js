@@ -65,6 +65,18 @@ test("extracts article metadata", () => {
   assert.match(article.html, /data-game-title="대한민국"/);
 });
 
+test("extracts metadata when attributes are not in the usual order", () => {
+  const article = extractArticle(`
+    <meta content="순서 테스트" property="og:title">
+    <meta content="속성 순서가 바뀌어도 읽히는 설명입니다." name="og:description">
+    <link href="https://namu.wiki/w/%EC%88%9C%EC%84%9C%20%ED%85%8C%EC%8A%A4%ED%8A%B8" rel="canonical alternate">
+  `);
+
+  assert.equal(article.title, "순서 테스트");
+  assert.equal(article.description, "속성 순서가 바뀌어도 읽히는 설명입니다.");
+  assert.equal(article.canonicalUrl, "https://namu.wiki/w/%EC%88%9C%EC%84%9C%20%ED%85%8C%EC%8A%A4%ED%8A%B8");
+});
+
 test("normalizes relative OpenGraph image URLs", () => {
   const article = extractArticle(`
     <meta property="og:title" content="상대 이미지">

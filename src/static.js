@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { extname, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { httpError } from "./http.js";
 
@@ -18,7 +18,8 @@ export async function serveStatic(pathname, response) {
   const safePath = pathname === "/" ? "/index.html" : pathname;
   const filePath = normalize(join(PUBLIC_DIR, safePath));
 
-  if (!filePath.startsWith(PUBLIC_DIR)) {
+  const relativePath = relative(PUBLIC_DIR, filePath);
+  if (relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
     throw httpError(403, "Forbidden");
   }
 

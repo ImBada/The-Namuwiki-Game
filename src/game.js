@@ -41,6 +41,10 @@ const NAMU_HEADERS = {
   "Sec-Fetch-Mode": "navigate",
   "Sec-Fetch-Site": "same-origin"
 };
+const NAMU_FETCH_TIMEOUT_MS = Number.parseInt(
+  process.env.NAMU_FETCH_TIMEOUT_MS || "10000",
+  10
+);
 const ROUND_SECRET =
   process.env.ROUND_SECRET || "the-namuwiki-game-local-round-secret";
 const ALLOW_SYNTHETIC_FALLBACK =
@@ -354,7 +358,10 @@ async function getArticle(title) {
   let article = null;
 
   for (const attempt of attempts) {
-    const response = await fetch(attempt.url, { headers: attempt.headers });
+    const response = await fetch(attempt.url, {
+      headers: attempt.headers,
+      signal: AbortSignal.timeout(NAMU_FETCH_TIMEOUT_MS)
+    });
     lastStatus = response.status;
 
     if (!response.ok) {

@@ -41,12 +41,13 @@ export function makeArticleUrl(title) {
 }
 
 export function extractMetaContent(html, propertyName) {
-  const escaped = propertyName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(
-    `<meta\\s+[^>]*(?:property|name)=["']${escaped}["'][^>]*content=["']([^"']*)["'][^>]*>`,
-    "i"
-  );
-  return decodeHtmlEntities(html.match(pattern)?.[1] || "");
+  for (const tag of String(html || "").matchAll(/<meta\b[^>]*>/gi)) {
+    const attrs = parseHtmlAttributes(tag[0]);
+    if (attrs.property === propertyName || attrs.name === propertyName) {
+      return decodeHtmlEntities(attrs.content || "");
+    }
+  }
+  return "";
 }
 
 export function extractArticle(html, requestedTitle = "") {
@@ -171,8 +172,25 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
 }
 
 function extractCanonicalUrl(html) {
-  const match = html.match(/<link\s+[^>]*rel=["']canonical["'][^>]*href=["']([^"']+)["'][^>]*>/i);
-  return match ? decodeHtmlEntities(match[1]) : "";
+  for (const tag of String(html || "").matchAll(/<link\b[^>]*>/gi)) {
+    const attrs = parseHtmlAttributes(tag[0]);
+    if (attrs.rel?.split(/\s+/).includes("canonical")) {
+      return decodeHtmlEntities(attrs.href || "");
+    }
+  }
+  return "";
+}
+
+function parseHtmlAttributes(tag) {
+  const attrs = {};
+  const attrPattern = /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+  let match;
+  while ((match = attrPattern.exec(tag))) {
+    const name = match[1].toLowerCase();
+    if (name === tag.match(/^<\/?([^\s>]+)/)?.[1]?.toLowerCase()) continue;
+    attrs[name] = decodeHtmlEntities(match[2] ?? match[3] ?? match[4] ?? "");
+  }
+  return attrs;
 }
 
 function findArticleContentStart(html) {

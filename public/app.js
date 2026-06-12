@@ -50,7 +50,7 @@ const els = {
   historyBackButton: document.querySelector("#historyBackButton"),
   clearHistoryButton: document.querySelector("#clearHistoryButton"),
   historyList: document.querySelector("#historyList"),
-  storageNote: document.querySelector("#storageNote"),
+  storageNotes: document.querySelectorAll("[data-storage-note]"),
   dailyDateText: document.querySelector("#dailyDateText"),
   dailyTimeLeft: document.querySelector("#dailyTimeLeft"),
   dailyStartTitle: document.querySelector("#dailyStartTitle"),
@@ -399,7 +399,7 @@ function setSpecifiedGameLoading(isLoading) {
 
 function readSpecifiedGames() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(SPECIFIED_GAMES_STORAGE_KEY) || "[]");
+    const parsed = JSON.parse(readLocalStorage(SPECIFIED_GAMES_STORAGE_KEY) || "[]");
     return Array.isArray(parsed) ? parsed.map(normalizeSpecifiedGame).filter(Boolean) : [];
   } catch {
     return [];
@@ -407,7 +407,7 @@ function readSpecifiedGames() {
 }
 
 function writeSpecifiedGames(games) {
-  localStorage.setItem(SPECIFIED_GAMES_STORAGE_KEY, JSON.stringify(games));
+  writeLocalStorage(SPECIFIED_GAMES_STORAGE_KEY, JSON.stringify(games));
 }
 
 function normalizeSpecifiedGame(game) {
@@ -538,7 +538,9 @@ function render() {
   els.gameBoard.hidden = !state.hasStarted;
   els.homeBoard.hidden = state.homeView !== "home";
   els.historyScreen.hidden = state.homeView !== "history";
-  els.storageNote.hidden = state.homeView !== "home";
+  for (const note of els.storageNotes) {
+    note.hidden = state.homeView !== "home";
+  }
   els.startTitle.textContent = round?.startTitle || "-";
   els.goalTitle.textContent = round?.goalTitle || "-";
   els.stickyGoalTitle.textContent = round?.goalTitle || "-";
@@ -1410,7 +1412,7 @@ function saveCompletedRoundHistory() {
 
 function readHistory() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || "[]");
+    const parsed = JSON.parse(readLocalStorage(HISTORY_STORAGE_KEY) || "[]");
     return Array.isArray(parsed) ? parsed.map(normalizeHistoryRecord).filter(Boolean) : [];
   } catch {
     return [];
@@ -1418,7 +1420,7 @@ function readHistory() {
 }
 
 function writeHistory(history) {
-  localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+  writeLocalStorage(HISTORY_STORAGE_KEY, JSON.stringify(history));
 }
 
 function normalizeHistoryRecord(record) {
@@ -1445,7 +1447,7 @@ function clearHistory() {
   const confirmed = window.confirm("로컬에 저장된 플레이 히스토리를 모두 삭제할까요?");
   if (!confirmed) return;
 
-  localStorage.removeItem(HISTORY_STORAGE_KEY);
+  removeLocalStorage(HISTORY_STORAGE_KEY);
   renderHistory();
 }
 
@@ -2012,12 +2014,12 @@ function editNickname() {
 }
 
 function getNickname() {
-  return getCookie("namuwiki_game_nickname") || localStorage.getItem("namuwiki-game:nickname") || "익명";
+  return getCookie("namuwiki_game_nickname") || readLocalStorage("namuwiki-game:nickname") || "익명";
 }
 
 function setNickname(nickname) {
   const normalized = normalizeNickname(nickname) || "익명";
-  localStorage.setItem("namuwiki-game:nickname", normalized);
+  writeLocalStorage("namuwiki-game:nickname", normalized);
   document.cookie = `namuwiki_game_nickname=${encodeURIComponent(normalized)}; Max-Age=31536000; Path=/; SameSite=Lax`;
   renderNickname();
 }
@@ -2043,6 +2045,30 @@ function getCookie(name) {
     .map((item) => item.trim())
     .find((item) => item.startsWith(prefix));
   return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : "";
+}
+
+function readLocalStorage(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return "";
+  }
+}
+
+function writeLocalStorage(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Cookies still preserve nickname, and other local-only features can fail silently.
+  }
+}
+
+function removeLocalStorage(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Nothing to clear when storage is unavailable.
+  }
 }
 
 function syncArticleLinkState() {
