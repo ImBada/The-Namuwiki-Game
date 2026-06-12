@@ -33,6 +33,7 @@
             <p id="homeDescription">시작 문서와 목표 문서를 받은 뒤, 실제 문서 본문 링크만 눌러 길을 찾습니다.</p>
             <div class="home-actions">
               <button id="startGameButton" class="primary-button home-start-button" type="button">게임 시작</button>
+              <button id="multiplayerButton" class="secondary-button home-start-button" type="button">멀티플레이</button>
             </div>
           </div>
 
@@ -130,6 +131,10 @@
             <span>클릭</span>
             <strong id="clickCount">0</strong>
           </article>
+          <article id="opponentClickTile" class="stat-tile opponent-click-tile" hidden>
+            <span>상대 클릭</span>
+            <strong id="opponentClickCount">0</strong>
+          </article>
           <article class="stat-tile difficulty-tile">
             <span>난이도</span>
             <strong id="difficultyLabel">-</strong>
@@ -178,6 +183,27 @@
           문서 데이터 출처: <a href="https://namu.wiki/" rel="noreferrer" target="_blank">namu.wiki</a>.
           문서 내용은 각 문서의 라이선스를 따릅니다.
         </footer>
+
+        <aside id="multiplayerDock" class="multiplayer-dock" hidden>
+          <button
+            id="multiplayerDockToggle"
+            class="multiplayer-dock-toggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="multiplayerDockBody"
+          >
+            <span>상대 클릭</span>
+            <strong id="dockOpponentClickCount">0</strong>
+            <em id="dockChatSummary">채팅</em>
+          </button>
+          <section id="multiplayerDockBody" class="multiplayer-dock-body" hidden>
+            <div id="dockChatLog" class="chat-log dock-chat-log" aria-live="polite"></div>
+            <form id="dockChatForm" class="chat-form dock-chat-form">
+              <input id="dockChatInput" type="text" maxlength="240" autocomplete="off" placeholder="게임 중 채팅" />
+              <button class="secondary-button" type="submit">전송</button>
+            </form>
+          </section>
+        </aside>
       </section>
 
       <dialog id="resultDialog" class="result-dialog">
@@ -270,6 +296,84 @@
             <button id="seedStartButton" class="primary-button" type="submit">시작</button>
           </div>
         </form>
+      </dialog>
+
+      <dialog id="multiplayerDialog" class="multiplayer-dialog">
+        <div class="multiplayer-shell">
+          <div class="multiplayer-heading">
+            <div>
+              <span class="home-kicker">FRIEND MATCH</span>
+              <h2>멀티플레이 대기방</h2>
+            </div>
+            <button class="secondary-button" type="button" data-multiplayer-close>닫기</button>
+          </div>
+
+          <div class="multiplayer-room-grid">
+            <section class="multiplayer-panel">
+              <h3>방 만들기</h3>
+              <button id="createRoomButton" class="primary-button" type="button">공유 코드 만들기</button>
+            </section>
+            <section class="multiplayer-panel">
+              <h3>방 참가</h3>
+              <div class="join-room-row">
+                <input id="joinRoomInput" type="text" maxlength="5" autocomplete="off" placeholder="코드 5자리" />
+                <button id="joinRoomButton" class="secondary-button" type="button">참가</button>
+              </div>
+            </section>
+          </div>
+
+          <section id="multiplayerLobby" class="multiplayer-lobby" hidden>
+            <div class="room-code-panel">
+              <span>공유 코드</span>
+              <strong id="roomCodeText">-----</strong>
+              <button id="copyRoomCodeButton" class="secondary-button" type="button">복사</button>
+            </div>
+            <div class="connection-panel">
+              <span>연결 상태</span>
+              <strong id="multiplayerStatus">대기 중</strong>
+            </div>
+            <div class="multiplayer-route-panel">
+              <div>
+                <span>
+                  시작
+                  <button
+                    id="lockStartButton"
+                    class="lock-route-button"
+                    type="button"
+                    aria-label="시작 문서 잠금"
+                    aria-pressed="false"
+                    title="시작 문서 잠금"
+                  ></button>
+                </span>
+                <strong id="multiplayerStartTitle">추첨 대기 중</strong>
+              </div>
+              <div>
+                <span>
+                  도착
+                  <button
+                    id="lockGoalButton"
+                    class="lock-route-button"
+                    type="button"
+                    aria-label="도착 문서 잠금"
+                    aria-pressed="false"
+                    title="도착 문서 잠금"
+                  ></button>
+                </span>
+                <strong id="multiplayerGoalTitle">추첨 대기 중</strong>
+              </div>
+              <p id="multiplayerRoundStatus" aria-live="polite"></p>
+            </div>
+            <div id="chatLog" class="chat-log" aria-live="polite"></div>
+            <form id="chatForm" class="chat-form">
+              <input id="chatInput" type="text" maxlength="240" autocomplete="off" placeholder="대기방 채팅" />
+              <button class="secondary-button" type="submit">전송</button>
+            </form>
+            <div class="multiplayer-ready-actions">
+              <button id="drawMultiplayerRoundButton" class="secondary-button" type="button" disabled>추첨</button>
+              <button id="multiplayerStartButton" class="primary-button" type="button" disabled>게임 시작</button>
+            </div>
+          </section>
+        </div>
       </dialog>
     </main>
     <script type="module" src="/app.js"></script>

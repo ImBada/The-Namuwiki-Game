@@ -11,6 +11,13 @@ import {
 } from "./src/game.js";
 import { getDailyLeaderboard, submitDailyScore } from "./src/daily-scores.js";
 import { readJsonBody, sendJson } from "./src/http.js";
+import {
+  addMultiplayerSignal,
+  createMultiplayerRoom,
+  getMultiplayerRoom,
+  joinMultiplayerRoom,
+  readMultiplayerSignals
+} from "./src/multiplayer.js";
 import { serveStatic } from "./src/static.js";
 
 const PORT = Number.parseInt(process.env.PORT || "3000", 10);
@@ -46,6 +53,43 @@ export async function handleRequest(request, response) {
     if (url.pathname === "/api/daily-scores" && request.method === "POST") {
       const body = await readJsonBody(request);
       return sendJson(response, await submitDailyScore(body), 201);
+    }
+
+    if (url.pathname === "/api/multiplayer/rooms" && request.method === "POST") {
+      const body = await readJsonBody(request);
+      return sendJson(response, createMultiplayerRoom(body), 201);
+    }
+
+    const multiplayerRoomMatch = url.pathname.match(/^\/api\/multiplayer\/rooms\/([A-Za-z0-9]{5})$/);
+    if (multiplayerRoomMatch && request.method === "GET") {
+      return sendJson(
+        response,
+        getMultiplayerRoom(multiplayerRoomMatch[1], url.searchParams.get("peerId") || "")
+      );
+    }
+
+    if (multiplayerRoomMatch && request.method === "POST") {
+      const body = await readJsonBody(request);
+      return sendJson(response, joinMultiplayerRoom(multiplayerRoomMatch[1], body), 201);
+    }
+
+    const multiplayerSignalMatch = url.pathname.match(
+      /^\/api\/multiplayer\/rooms\/([A-Za-z0-9]{5})\/signals$/
+    );
+    if (multiplayerSignalMatch && request.method === "GET") {
+      return sendJson(
+        response,
+        readMultiplayerSignals(
+          multiplayerSignalMatch[1],
+          url.searchParams.get("peerId") || "",
+          url.searchParams.get("after") || "0"
+        )
+      );
+    }
+
+    if (multiplayerSignalMatch && request.method === "POST") {
+      const body = await readJsonBody(request);
+      return sendJson(response, addMultiplayerSignal(multiplayerSignalMatch[1], body), 201);
     }
 
     if (url.pathname === "/api/click" && request.method === "POST") {

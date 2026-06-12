@@ -19,6 +19,7 @@ const SPECIFIED_GAMES_STORAGE_KEY = "namuwiki-game:specified-games";
 const HISTORY_LIMIT = 50;
 const VISIBLE_HISTORY_LIMIT = 30;
 const SPECIFIED_GAMES_LIMIT = 5;
+const MULTIPLAYER_POLL_MS = 1000;
 
 const state = {
   round: null,
@@ -35,7 +36,8 @@ const state = {
   completedElapsedSeconds: 0,
   isMoving: false,
   savedHistoryRoundId: "",
-  tick: null
+  tick: null,
+  multiplayer: createMultiplayerState()
 };
 
 const els = {
@@ -43,6 +45,7 @@ const els = {
   homeBoard: document.querySelector("#homeBoard"),
   historyScreen: document.querySelector("#historyScreen"),
   startGameButton: document.querySelector("#startGameButton"),
+  multiplayerButton: document.querySelector("#multiplayerButton"),
   dailyChallengeButton: document.querySelector("#dailyChallengeButton"),
   historyButton: document.querySelector("#historyButton"),
   historyBackButton: document.querySelector("#historyBackButton"),
@@ -97,6 +100,8 @@ const els = {
   goalTitle: document.querySelector("#goalTitle"),
   timer: document.querySelector("#timer"),
   clickCount: document.querySelector("#clickCount"),
+  opponentClickTile: document.querySelector("#opponentClickTile"),
+  opponentClickCount: document.querySelector("#opponentClickCount"),
   difficultyLabel: document.querySelector("#difficultyLabel"),
   articleTitle: document.querySelector("#articleTitle"),
   stickyGoalTitle: document.querySelector("#stickyGoalTitle"),
@@ -104,10 +109,37 @@ const els = {
   wikiArticle: document.querySelector("#wikiArticle"),
   pathCount: document.querySelector("#pathCount"),
   pathGoalTitle: document.querySelector("#pathGoalTitle"),
-  pathList: document.querySelector("#pathList")
+  pathList: document.querySelector("#pathList"),
+  multiplayerDialog: document.querySelector("#multiplayerDialog"),
+  createRoomButton: document.querySelector("#createRoomButton"),
+  joinRoomInput: document.querySelector("#joinRoomInput"),
+  joinRoomButton: document.querySelector("#joinRoomButton"),
+  multiplayerLobby: document.querySelector("#multiplayerLobby"),
+  roomCodeText: document.querySelector("#roomCodeText"),
+  copyRoomCodeButton: document.querySelector("#copyRoomCodeButton"),
+  multiplayerStatus: document.querySelector("#multiplayerStatus"),
+  multiplayerStartTitle: document.querySelector("#multiplayerStartTitle"),
+  multiplayerGoalTitle: document.querySelector("#multiplayerGoalTitle"),
+  lockStartButton: document.querySelector("#lockStartButton"),
+  lockGoalButton: document.querySelector("#lockGoalButton"),
+  multiplayerRoundStatus: document.querySelector("#multiplayerRoundStatus"),
+  chatLog: document.querySelector("#chatLog"),
+  chatForm: document.querySelector("#chatForm"),
+  chatInput: document.querySelector("#chatInput"),
+  drawMultiplayerRoundButton: document.querySelector("#drawMultiplayerRoundButton"),
+  multiplayerStartButton: document.querySelector("#multiplayerStartButton"),
+  multiplayerDock: document.querySelector("#multiplayerDock"),
+  multiplayerDockToggle: document.querySelector("#multiplayerDockToggle"),
+  multiplayerDockBody: document.querySelector("#multiplayerDockBody"),
+  dockOpponentClickCount: document.querySelector("#dockOpponentClickCount"),
+  dockChatSummary: document.querySelector("#dockChatSummary"),
+  dockChatLog: document.querySelector("#dockChatLog"),
+  dockChatForm: document.querySelector("#dockChatForm"),
+  dockChatInput: document.querySelector("#dockChatInput")
 };
 
 els.startGameButton.addEventListener("click", openGameModeDialog);
+els.multiplayerButton.addEventListener("click", openMultiplayerDialog);
 els.dailyChallengeButton.addEventListener("click", startDailyChallenge);
 els.historyButton.addEventListener("click", showHistory);
 els.historyBackButton.addEventListener("click", showHomeBoard);
@@ -143,6 +175,20 @@ els.seedForm.addEventListener("submit", startSeededRoundFromDialog);
 els.seedDialog.querySelector("[data-seed-cancel]").addEventListener("click", () => {
   els.seedDialog.close();
 });
+els.multiplayerDialog.querySelector("[data-multiplayer-close]").addEventListener("click", closeMultiplayerDialog);
+els.createRoomButton.addEventListener("click", createMultiplayerRoom);
+els.joinRoomButton.addEventListener("click", joinMultiplayerRoom);
+els.joinRoomInput.addEventListener("input", () => {
+  els.joinRoomInput.value = normalizeRoomCodeInput(els.joinRoomInput.value);
+});
+els.copyRoomCodeButton.addEventListener("click", copyRoomCode);
+els.chatForm.addEventListener("submit", sendChatMessage);
+els.dockChatForm.addEventListener("submit", sendDockChatMessage);
+els.multiplayerDockToggle.addEventListener("click", toggleMultiplayerDock);
+els.lockStartButton.addEventListener("click", () => toggleMultiplayerRouteLock("start"));
+els.lockGoalButton.addEventListener("click", () => toggleMultiplayerRouteLock("goal"));
+els.drawMultiplayerRoundButton.addEventListener("click", drawMultiplayerRound);
+els.multiplayerStartButton.addEventListener("click", startHostMultiplayerRound);
 els.dailyScoreForm.addEventListener("submit", submitDailyScoreFromDialog);
 for (const button of els.nicknameButtons) {
   button.addEventListener("click", editNickname);
@@ -158,6 +204,35 @@ els.wikiArticle.addEventListener("click", (event) => {
 render();
 renderNickname();
 startHomeClock();
+
+function createMultiplayerState() {
+  return {
+    room: null,
+    peerId: "",
+    isHost: false,
+    peerConnection: null,
+    channel: null,
+    pollTimer: null,
+    roomPollTimer: null,
+    lastSignalId: 0,
+    pendingIceCandidates: [],
+    connected: false,
+    connecting: false,
+    status: "대기 중",
+    opponentClicks: 0,
+    inGame: false,
+    selectedStartTitle: "",
+    selectedGoalTitle: "",
+    lockStart: false,
+    lockGoal: false,
+    roundPreview: null,
+    roundPreviewLoading: false,
+    roundPreviewStatus: "",
+    dockOpen: false,
+    unreadChatCount: 0,
+    chatMessages: []
+  };
+}
 
 function startFreshRound() {
   clearRoundQueryParams();
@@ -262,7 +337,7 @@ async function startSpecifiedRoundFromDialog(event) {
 }
 
 function handleRoundAction() {
-  if (isDailyChallengeRound()) {
+  if (state.multiplayer.inGame || isDailyChallengeRound()) {
     returnHome();
     return;
   }
@@ -280,6 +355,10 @@ function returnHome() {
   state.savedHistoryRoundId = "";
   state.hasStarted = false;
   state.homeView = "home";
+  state.multiplayer.inGame = false;
+  state.multiplayer.opponentClicks = 0;
+  state.multiplayer.dockOpen = false;
+  state.multiplayer.unreadChatCount = 0;
   document.body.classList.remove("is-game", "is-loading");
   document.body.classList.add("is-home");
   clearRoundQueryParams();
@@ -444,6 +523,7 @@ async function moveTo(title) {
     });
     state.round = data.round;
     state.article = data.article;
+    broadcastMultiplayerClicks();
     render();
     scrollToArticleTop();
 
@@ -485,6 +565,7 @@ async function rewindToPathIndex(pathIndex) {
     state.article = data.article;
     state.completed = false;
     state.completedElapsedSeconds = 0;
+    broadcastMultiplayerClicks();
     render();
     scrollToArticleTop();
   } catch (error) {
@@ -510,6 +591,12 @@ function render() {
   els.stickyGoalTitle.textContent = round?.goalTitle || "-";
   els.pathGoalTitle.textContent = round?.goalTitle || "-";
   els.clickCount.textContent = String(round?.clickCount || 0);
+  els.opponentClickCount.textContent = String(state.multiplayer.opponentClicks || 0);
+  els.opponentClickTile.hidden = !state.multiplayer.inGame;
+  els.gameBoard.querySelector(".round-strip")?.classList.toggle(
+    "has-opponent",
+    state.multiplayer.inGame
+  );
   els.difficultyLabel.textContent = round?.difficulty?.label || "-";
   els.articleTitle.textContent = article?.title || "라운드를 시작합니다";
   els.sourceLink.href = article?.canonicalUrl || "https://namu.wiki/";
@@ -526,6 +613,8 @@ function render() {
   renderRoundAction();
   renderTimer();
   renderStatus();
+  renderMultiplayerLobby();
+  renderMultiplayerDock();
 }
 
 function showHistory() {
@@ -542,8 +631,651 @@ function showHomeBoard() {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function openMultiplayerDialog() {
+  if (!window.RTCPeerConnection) {
+    window.alert("이 브라우저는 상대방 연결을 지원하지 않습니다.");
+    return;
+  }
+
+  renderMultiplayerLobby();
+  els.multiplayerDialog.showModal();
+}
+
+function closeMultiplayerDialog() {
+  els.multiplayerDialog.close();
+  if (!state.multiplayer.inGame) {
+    disconnectMultiplayer();
+  }
+}
+
+async function createMultiplayerRoom() {
+  setMultiplayerLoading(true);
+  setMultiplayerStatus("방을 만드는 중입니다.");
+  try {
+    const data = await fetchJson("/api/multiplayer/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname: getNickname() })
+    });
+    resetMultiplayerConnection();
+    state.multiplayer.room = data.room;
+    state.multiplayer.peerId = data.peerId;
+    state.multiplayer.isHost = true;
+    state.multiplayer.status = "상대를 기다리는 중";
+    addChatSystemMessage("방이 만들어졌습니다. 공유 코드를 보내 주세요.");
+    drawHostMultiplayerRound({ announce: false, broadcast: false });
+    startRoomPoll();
+    startSignalPoll();
+    renderMultiplayerLobby();
+  } catch (error) {
+    setMultiplayerStatus(error.message);
+  } finally {
+    setMultiplayerLoading(false);
+  }
+}
+
+async function joinMultiplayerRoom() {
+  const code = normalizeRoomCodeInput(els.joinRoomInput.value);
+  if (code.length !== 5) {
+    els.joinRoomInput.focus();
+    setMultiplayerStatus("방 코드 5자리를 입력해 주세요.");
+    return;
+  }
+
+  setMultiplayerLoading(true);
+  setMultiplayerStatus("방에 참가하는 중입니다.");
+  try {
+    const data = await fetchJson(`/api/multiplayer/rooms/${code}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname: getNickname() })
+    });
+    resetMultiplayerConnection();
+    state.multiplayer.room = data.room;
+    state.multiplayer.peerId = data.peerId;
+    state.multiplayer.isHost = false;
+    state.multiplayer.status = "상대방 연결 중";
+    state.multiplayer.roundPreviewStatus = "호스트가 고른 게임을 기다리는 중입니다.";
+    addChatSystemMessage("방에 참가했습니다.");
+    await setupPeerConnection(false);
+    startSignalPoll();
+    renderMultiplayerLobby();
+  } catch (error) {
+    setMultiplayerStatus(error.message);
+  } finally {
+    setMultiplayerLoading(false);
+  }
+}
+
+function startRoomPoll() {
+  stopRoomPoll();
+  state.multiplayer.roomPollTimer = window.setInterval(async () => {
+    const mp = state.multiplayer;
+    if (!mp.room || !mp.peerId || !mp.isHost || mp.connected || mp.connecting) return;
+    try {
+      const data = await fetchJson(
+        `/api/multiplayer/rooms/${mp.room.code}?peerId=${encodeURIComponent(mp.peerId)}`
+      );
+      mp.room = data.room;
+      if (mp.room.hasGuest) {
+        mp.status = "상대방 연결 중";
+        renderMultiplayerLobby();
+        await setupPeerConnection(true);
+      }
+    } catch (error) {
+      mp.status = error.message;
+      renderMultiplayerLobby();
+    }
+  }, MULTIPLAYER_POLL_MS);
+}
+
+function stopRoomPoll() {
+  if (state.multiplayer.roomPollTimer) {
+    window.clearInterval(state.multiplayer.roomPollTimer);
+    state.multiplayer.roomPollTimer = null;
+  }
+}
+
+async function setupPeerConnection(isHost) {
+  const mp = state.multiplayer;
+  if (mp.connecting || mp.connected) return;
+  mp.connecting = true;
+
+  const peerConnection = new RTCPeerConnection({
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+  });
+  mp.peerConnection = peerConnection;
+
+  peerConnection.addEventListener("icecandidate", (event) => {
+    if (event.candidate) {
+      sendSignal("ice", event.candidate.toJSON());
+    }
+  });
+  peerConnection.addEventListener("connectionstatechange", () => {
+    if (["failed", "disconnected", "closed"].includes(peerConnection.connectionState)) {
+      mp.connected = false;
+      mp.status = "연결이 끊어졌습니다.";
+    } else if (peerConnection.connectionState === "connected") {
+      mp.status = "상대방 연결됨";
+    }
+    renderMultiplayerLobby();
+  });
+
+  if (isHost) {
+    bindDataChannel(peerConnection.createDataChannel("namuwiki-game"));
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    await sendSignal("offer", offer);
+  } else {
+    peerConnection.addEventListener("datachannel", (event) => {
+      bindDataChannel(event.channel);
+    });
+  }
+}
+
+function bindDataChannel(channel) {
+  const mp = state.multiplayer;
+  mp.channel = channel;
+  channel.addEventListener("open", () => {
+    mp.connected = true;
+    mp.connecting = false;
+    mp.status = "상대방 연결됨";
+    stopRoomPoll();
+    stopSignalPoll();
+    addChatSystemMessage("상대방과 채팅이 연결되었습니다.");
+    renderMultiplayerLobby();
+    if (mp.isHost && mp.roundPreview) {
+      sendDataChannelMessage(multiplayerDrawMessage());
+    }
+    broadcastMultiplayerClicks();
+  });
+  channel.addEventListener("message", (event) => {
+    handleDataChannelMessage(event.data);
+  });
+  channel.addEventListener("close", () => {
+    mp.connected = false;
+    mp.status = "채널이 닫혔습니다.";
+    renderMultiplayerLobby();
+  });
+}
+
+async function sendSignal(type, payload) {
+  const mp = state.multiplayer;
+  const to = mp.isHost ? mp.room?.guestPeerId : mp.room?.hostPeerId;
+  if (!mp.room?.code || !mp.peerId || !to) return;
+  await fetchJson(`/api/multiplayer/rooms/${mp.room.code}/signals`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ from: mp.peerId, to, type, payload })
+  });
+}
+
+function startSignalPoll() {
+  stopSignalPoll();
+  state.multiplayer.pollTimer = window.setInterval(pollSignals, MULTIPLAYER_POLL_MS);
+  pollSignals();
+}
+
+function stopSignalPoll() {
+  if (state.multiplayer.pollTimer) {
+    window.clearInterval(state.multiplayer.pollTimer);
+    state.multiplayer.pollTimer = null;
+  }
+}
+
+async function pollSignals() {
+  const mp = state.multiplayer;
+  if (!mp.room?.code || !mp.peerId) return;
+  try {
+    const params = new URLSearchParams({
+      peerId: mp.peerId,
+      after: String(mp.lastSignalId || 0)
+    });
+    const data = await fetchJson(`/api/multiplayer/rooms/${mp.room.code}/signals?${params}`);
+    if (data.room) mp.room = data.room;
+    for (const signal of data.signals || []) {
+      mp.lastSignalId = Math.max(mp.lastSignalId, signal.id || 0);
+      await handleSignal(signal);
+    }
+  } catch (error) {
+    mp.status = error.message;
+    renderMultiplayerLobby();
+  }
+}
+
+async function handleSignal(signal) {
+  const mp = state.multiplayer;
+  if (!mp.peerConnection && signal.type === "offer") {
+    await setupPeerConnection(false);
+  }
+  const peerConnection = mp.peerConnection;
+  if (!peerConnection) return;
+
+  if (signal.type === "offer") {
+    await peerConnection.setRemoteDescription(signal.payload);
+    await flushPendingIceCandidates();
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    await sendSignal("answer", answer);
+    return;
+  }
+
+  if (signal.type === "answer") {
+    await peerConnection.setRemoteDescription(signal.payload);
+    await flushPendingIceCandidates();
+    return;
+  }
+
+  if (signal.type === "ice") {
+    if (!peerConnection.remoteDescription) {
+      mp.pendingIceCandidates.push(signal.payload);
+      return;
+    }
+    await peerConnection.addIceCandidate(signal.payload);
+  }
+}
+
+async function flushPendingIceCandidates() {
+  const mp = state.multiplayer;
+  const peerConnection = mp.peerConnection;
+  if (!peerConnection?.remoteDescription) return;
+  const candidates = mp.pendingIceCandidates.splice(0);
+  for (const candidate of candidates) {
+    await peerConnection.addIceCandidate(candidate);
+  }
+}
+
+function handleDataChannelMessage(rawMessage) {
+  let message;
+  try {
+    message = JSON.parse(rawMessage);
+  } catch {
+    return;
+  }
+
+  if (message.type === "chat") {
+    addChatMessage(message.nickname || "상대", message.text || "", "remote");
+    if (state.multiplayer.inGame && !state.multiplayer.dockOpen) {
+      state.multiplayer.unreadChatCount += 1;
+      renderMultiplayerDock();
+    }
+    return;
+  }
+
+  if (message.type === "clicks") {
+    state.multiplayer.opponentClicks = Number.parseInt(message.clickCount, 10) || 0;
+    render();
+    return;
+  }
+
+  if (message.type === "draw") {
+    addChatSystemMessage("새 게임이 추첨되었습니다.");
+    setMultiplayerRoundPreview(message.startTitle, message.goalTitle, "이 게임으로 시작할 수 있습니다.");
+    applyMultiplayerLockState(message.lockStart, message.lockGoal, { broadcast: false });
+    return;
+  }
+
+  if (message.type === "lock-state") {
+    applyMultiplayerLockState(message.lockStart, message.lockGoal, { broadcast: false });
+    return;
+  }
+
+  if (message.type === "draw-request" && state.multiplayer.isHost) {
+    addChatSystemMessage("상대방이 추첨을 요청했습니다.");
+    drawHostMultiplayerRound({ announce: true, broadcast: true });
+    return;
+  }
+
+  if (message.type === "start") {
+    addChatSystemMessage("호스트가 게임을 시작했습니다.");
+    startMultiplayerRound(message);
+  }
+}
+
+function sendDataChannelMessage(message) {
+  const channel = state.multiplayer.channel;
+  if (!channel || channel.readyState !== "open") return false;
+  channel.send(JSON.stringify(message));
+  return true;
+}
+
+function sendChatMessage(event) {
+  sendChatMessageFromInput(event, els.chatInput);
+}
+
+function sendDockChatMessage(event) {
+  sendChatMessageFromInput(event, els.dockChatInput);
+}
+
+function sendChatMessageFromInput(event, input) {
+  event.preventDefault();
+  const text = input.value.trim();
+  if (!text) return;
+  if (!sendDataChannelMessage({ type: "chat", nickname: getNickname(), text })) {
+    setMultiplayerStatus("상대방 채팅이 아직 연결되지 않았습니다.");
+    return;
+  }
+  addChatMessage(getNickname(), text, "local");
+  input.value = "";
+}
+
+function toggleMultiplayerDock() {
+  state.multiplayer.dockOpen = !state.multiplayer.dockOpen;
+  if (state.multiplayer.dockOpen) {
+    state.multiplayer.unreadChatCount = 0;
+  }
+  renderMultiplayerDock();
+}
+
+async function startHostMultiplayerRound() {
+  const { selectedStartTitle, selectedGoalTitle } = state.multiplayer;
+  if (
+    !state.multiplayer.isHost ||
+    !state.multiplayer.connected ||
+    !selectedStartTitle ||
+    !selectedGoalTitle
+  ) {
+    return;
+  }
+  const message = {
+    type: "start",
+    startTitle: selectedStartTitle,
+    goalTitle: selectedGoalTitle
+  };
+  sendDataChannelMessage(message);
+  await startMultiplayerRound(message);
+}
+
+function drawMultiplayerRound() {
+  if (!state.multiplayer.connected && !state.multiplayer.isHost) {
+    setMultiplayerStatus("상대방 연결 후 추첨할 수 있습니다.");
+    return;
+  }
+  if (state.multiplayer.isHost) {
+    drawHostMultiplayerRound({ announce: true, broadcast: true });
+    return;
+  }
+  if (sendDataChannelMessage({ type: "draw-request" })) {
+    addChatSystemMessage("추첨을 요청했습니다.");
+  }
+}
+
+async function drawHostMultiplayerRound({ announce, broadcast }) {
+  if (!state.multiplayer.isHost) return;
+  const mp = state.multiplayer;
+  if (mp.lockStart && mp.lockGoal && mp.selectedStartTitle && mp.selectedGoalTitle) {
+    mp.roundPreviewStatus = "시작과 도착이 모두 잠겨 있어 유지했습니다.";
+    if (broadcast) {
+      sendDataChannelMessage(multiplayerDrawMessage());
+    }
+    if (announce) addChatSystemMessage("잠긴 게임을 유지했습니다.");
+    renderMultiplayerLobby();
+    return;
+  }
+
+  mp.roundPreviewLoading = true;
+  mp.roundPreviewStatus = "게임을 고르는 중입니다.";
+  renderMultiplayerLobby();
+  try {
+    const data = await fetchJson(multiplayerDrawRequestUrl());
+    setMultiplayerRoundPreview(
+      data.round?.startTitle || "",
+      data.round?.goalTitle || "",
+      "이 게임으로 시작할 수 있습니다."
+    );
+    if (broadcast) {
+      sendDataChannelMessage(multiplayerDrawMessage());
+    }
+    if (announce) addChatSystemMessage("새 게임을 추첨했습니다.");
+  } catch (error) {
+    mp.roundPreviewStatus = error.message || "게임을 고르지 못했습니다.";
+  } finally {
+    mp.roundPreviewLoading = false;
+    renderMultiplayerLobby();
+  }
+}
+
+function multiplayerDrawRequestUrl() {
+  const params = new URLSearchParams();
+  const mp = state.multiplayer;
+  if (mp.lockStart && mp.selectedStartTitle) {
+    params.set("start", mp.selectedStartTitle);
+  }
+  if (mp.lockGoal && mp.selectedGoalTitle) {
+    params.set("goal", mp.selectedGoalTitle);
+  }
+  const query = params.toString();
+  return query ? `/api/round?${query}` : "/api/round";
+}
+
+function multiplayerDrawMessage() {
+  const mp = state.multiplayer;
+  return {
+    type: "draw",
+    startTitle: mp.selectedStartTitle,
+    goalTitle: mp.selectedGoalTitle,
+    lockStart: mp.lockStart,
+    lockGoal: mp.lockGoal
+  };
+}
+
+function setMultiplayerRoundPreview(startTitle, goalTitle, status) {
+  const normalizedStartTitle = normalizeTitleInput(startTitle);
+  const normalizedGoalTitle = normalizeTitleInput(goalTitle);
+  if (!normalizedStartTitle || !normalizedGoalTitle) return;
+  state.multiplayer.selectedStartTitle = normalizedStartTitle;
+  state.multiplayer.selectedGoalTitle = normalizedGoalTitle;
+  state.multiplayer.roundPreview = {
+    startTitle: normalizedStartTitle,
+    goalTitle: normalizedGoalTitle
+  };
+  state.multiplayer.roundPreviewStatus = status || "";
+  state.multiplayer.roundPreviewLoading = false;
+  renderMultiplayerLobby();
+}
+
+function toggleMultiplayerRouteLock(kind) {
+  const mp = state.multiplayer;
+  if (!mp.roundPreview) return;
+  if (kind === "start") {
+    mp.lockStart = !mp.lockStart;
+  } else {
+    mp.lockGoal = !mp.lockGoal;
+  }
+  mp.roundPreviewStatus = multiplayerLockStatus();
+  sendDataChannelMessage({
+    type: "lock-state",
+    lockStart: mp.lockStart,
+    lockGoal: mp.lockGoal
+  });
+  renderMultiplayerLobby();
+}
+
+function applyMultiplayerLockState(lockStart, lockGoal, options = {}) {
+  state.multiplayer.lockStart = Boolean(lockStart);
+  state.multiplayer.lockGoal = Boolean(lockGoal);
+  state.multiplayer.roundPreviewStatus = multiplayerLockStatus();
+  if (options.broadcast) {
+    sendDataChannelMessage({
+      type: "lock-state",
+      lockStart: state.multiplayer.lockStart,
+      lockGoal: state.multiplayer.lockGoal
+    });
+  }
+  renderMultiplayerLobby();
+}
+
+function multiplayerLockStatus() {
+  const { lockStart, lockGoal } = state.multiplayer;
+  if (lockStart && lockGoal) return "시작과 도착을 잠갔습니다.";
+  if (lockStart) return "시작을 잠갔습니다. 추첨하면 도착만 바뀝니다.";
+  if (lockGoal) return "도착을 잠갔습니다. 추첨하면 시작만 바뀝니다.";
+  return "이 게임으로 시작할 수 있습니다.";
+}
+
+async function startMultiplayerRound(message) {
+  const startTitle = normalizeTitleInput(message?.startTitle);
+  const goalTitle = normalizeTitleInput(message?.goalTitle);
+  if (!startTitle || !goalTitle) return;
+  state.multiplayer.inGame = true;
+  state.multiplayer.opponentClicks = 0;
+  state.multiplayer.dockOpen = false;
+  state.multiplayer.unreadChatCount = 0;
+  setSpecifiedRoundQuery(startTitle, goalTitle);
+  els.multiplayerDialog.close();
+  await startRound();
+  broadcastMultiplayerClicks();
+}
+
+function broadcastMultiplayerClicks() {
+  if (!state.multiplayer.inGame) return;
+  sendDataChannelMessage({
+    type: "clicks",
+    clickCount: state.round?.clickCount || 0
+  });
+}
+
+function disconnectMultiplayer() {
+  stopSignalPoll();
+  stopRoomPoll();
+  resetMultiplayerConnection();
+  state.multiplayer = createMultiplayerState();
+  renderMultiplayerLobby();
+  renderMultiplayerDock();
+}
+
+function resetMultiplayerConnection() {
+  stopSignalPoll();
+  stopRoomPoll();
+  state.multiplayer.channel?.close();
+  state.multiplayer.peerConnection?.close();
+  state.multiplayer.peerConnection = null;
+  state.multiplayer.channel = null;
+  state.multiplayer.connected = false;
+  state.multiplayer.connecting = false;
+  state.multiplayer.lastSignalId = 0;
+  state.multiplayer.pendingIceCandidates = [];
+}
+
+function setMultiplayerStatus(message) {
+  state.multiplayer.status = message || "";
+  renderMultiplayerLobby();
+}
+
+function setMultiplayerLoading(isLoading) {
+  els.createRoomButton.disabled = isLoading;
+  els.joinRoomButton.disabled = isLoading;
+}
+
+function renderMultiplayerLobby() {
+  const mp = state.multiplayer;
+  const hasRoom = Boolean(mp.room?.code);
+  els.multiplayerLobby.hidden = !hasRoom;
+  els.roomCodeText.textContent = mp.room?.code || "-----";
+  els.multiplayerStatus.textContent = mp.status || "대기 중";
+  els.multiplayerStartTitle.textContent = mp.roundPreview?.startTitle || "추첨 대기 중";
+  els.multiplayerGoalTitle.textContent = mp.roundPreview?.goalTitle || "추첨 대기 중";
+  els.multiplayerRoundStatus.textContent = mp.roundPreviewStatus || "";
+  renderRouteLockButton(els.lockStartButton, mp.lockStart, "시작");
+  renderRouteLockButton(els.lockGoalButton, mp.lockGoal, "도착");
+  els.lockStartButton.disabled = !mp.roundPreview || mp.roundPreviewLoading;
+  els.lockGoalButton.disabled = !mp.roundPreview || mp.roundPreviewLoading;
+  els.chatInput.disabled = !mp.connected;
+  els.chatForm.querySelector("button").disabled = !mp.connected;
+  els.drawMultiplayerRoundButton.disabled =
+    (!mp.connected && !mp.isHost) || mp.roundPreviewLoading;
+  els.multiplayerStartButton.hidden = !mp.isHost;
+  els.multiplayerStartButton.disabled =
+    !mp.isHost ||
+    !mp.connected ||
+    mp.roundPreviewLoading ||
+    !mp.selectedStartTitle ||
+    !mp.selectedGoalTitle ||
+    !mp.roundPreview;
+  renderChatLog(els.chatLog);
+}
+
+function renderMultiplayerDock() {
+  const mp = state.multiplayer;
+  els.multiplayerDock.hidden = !mp.inGame;
+  document.body.classList.toggle("has-multiplayer-dock", mp.inGame);
+  if (!mp.inGame) return;
+
+  els.dockOpponentClickCount.textContent = String(mp.opponentClicks || 0);
+  els.multiplayerDock.classList.toggle("is-open", mp.dockOpen);
+  els.multiplayerDockToggle.setAttribute("aria-expanded", String(mp.dockOpen));
+  els.multiplayerDockBody.hidden = !mp.dockOpen;
+  els.dockChatSummary.textContent = mp.unreadChatCount > 0
+    ? `채팅 ${mp.unreadChatCount}`
+    : "채팅";
+  els.dockChatInput.disabled = !mp.connected;
+  els.dockChatForm.querySelector("button").disabled = !mp.connected;
+  renderChatLog(els.dockChatLog);
+}
+
+function renderChatLog(chatLog) {
+  chatLog.replaceChildren(
+    ...state.multiplayer.chatMessages.slice(-60).map(createChatMessageElement)
+  );
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function createChatMessageElement(message) {
+  const item = document.createElement("div");
+  item.className = `chat-message ${message.kind}`;
+  const name = document.createElement("strong");
+  const text = document.createElement("span");
+  name.textContent = message.nickname;
+  text.textContent = message.text;
+  item.append(name, text);
+  return item;
+}
+
+function renderRouteLockButton(button, isLocked, label) {
+  button.classList.toggle("is-locked", isLocked);
+  button.setAttribute("aria-pressed", String(isLocked));
+  button.setAttribute("aria-label", `${label} 문서 ${isLocked ? "잠금 해제" : "잠금"}`);
+  button.title = `${label} 문서 ${isLocked ? "잠금 해제" : "잠금"}`;
+}
+
+function addChatMessage(nickname, text, kind) {
+  const normalizedText = String(text || "").trim();
+  if (!normalizedText) return;
+  state.multiplayer.chatMessages.push({
+    nickname: String(nickname || "익명").slice(0, 20),
+    text: normalizedText.slice(0, 240),
+    kind
+  });
+  renderMultiplayerLobby();
+  renderMultiplayerDock();
+}
+
+function addChatSystemMessage(text) {
+  addChatMessage("시스템", text, "system");
+}
+
+async function copyRoomCode() {
+  const code = state.multiplayer.room?.code || "";
+  if (!code) return;
+  try {
+    await navigator.clipboard.writeText(code);
+    setMultiplayerStatus("방 코드를 복사했습니다.");
+  } catch {
+    setMultiplayerStatus("복사하지 못했습니다. 코드를 직접 선택해 주세요.");
+  }
+}
+
+function normalizeRoomCodeInput(value) {
+  return String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 5);
+}
+
 function renderRoundAction() {
-  els.newRoundButton.textContent = isDailyChallengeRound() ? "게임 포기" : "새 무작위 라운드";
+  const shouldForfeit = state.multiplayer.inGame || isDailyChallengeRound();
+  els.homeButton.hidden = state.multiplayer.inGame;
+  els.newRoundButton.textContent = shouldForfeit ? "게임 포기" : "새 무작위 라운드";
 }
 
 function renderHomeChallenge() {

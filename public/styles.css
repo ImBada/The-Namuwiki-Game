@@ -41,6 +41,10 @@ body {
     sans-serif;
 }
 
+body.has-multiplayer-dock {
+  padding-bottom: 96px;
+}
+
 button,
 input {
   font: inherit;
@@ -844,6 +848,10 @@ a:focus-visible {
   gap: 10px;
 }
 
+.round-strip.has-opponent {
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.35fr) 120px 104px 120px 118px;
+}
+
 .game-control-bar {
   display: flex;
   justify-content: flex-end;
@@ -884,6 +892,11 @@ a:focus-visible {
 .difficulty-tile {
   border-left-color: var(--amber);
   box-shadow: var(--glow-amber), var(--shadow-soft);
+}
+
+.opponent-click-tile {
+  border-left-color: var(--blue);
+  box-shadow: 0 0 0 1px rgba(47, 140, 255, 0.12), 0 0 24px rgba(47, 140, 255, 0.16);
 }
 
 .round-tile span,
@@ -1800,7 +1813,8 @@ body.is-loading .game-wiki-link {
 }
 
 .seed-dialog,
-.game-mode-dialog {
+.game-mode-dialog,
+.multiplayer-dialog {
   width: min(420px, calc(100% - 32px));
   border: 1px solid rgba(120, 255, 226, 0.32);
   border-radius: var(--radius);
@@ -1812,6 +1826,10 @@ body.is-loading .game-wiki-link {
 
 .game-mode-dialog {
   width: min(560px, calc(100% - 32px));
+}
+
+.multiplayer-dialog {
+  width: min(720px, calc(100% - 32px));
 }
 
 .seed-dialog form,
@@ -1837,7 +1855,338 @@ body.is-loading .game-wiki-link {
 }
 
 .seed-dialog input,
-.game-mode-dialog input {
+.game-mode-dialog input,
+.multiplayer-dialog input {
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid rgba(120, 255, 226, 0.26);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0 12px;
+  color: #f8fff9;
+  font-weight: 750;
+}
+
+.multiplayer-shell {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
+
+.multiplayer-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.multiplayer-heading > div {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.multiplayer-heading h2,
+.multiplayer-panel h3 {
+  margin: 0;
+  color: #f8fff9;
+  line-height: 1.2;
+}
+
+.multiplayer-heading h2 {
+  font-size: 26px;
+}
+
+.multiplayer-panel h3 {
+  font-size: 15px;
+}
+
+.multiplayer-room-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.multiplayer-panel,
+.multiplayer-lobby {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(120, 255, 226, 0.22);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 14px;
+}
+
+.join-room-row,
+.chat-form,
+.multiplayer-ready-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.room-code-panel,
+.connection-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 176, 46, 0.28);
+  border-radius: var(--radius);
+  background: rgba(255, 176, 46, 0.08);
+  padding: 10px;
+}
+
+.connection-panel {
+  border-color: rgba(120, 255, 226, 0.2);
+  background: rgba(0, 194, 173, 0.08);
+}
+
+.room-code-panel span,
+.connection-panel span {
+  color: #95bbb1;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.room-code-panel strong,
+.connection-panel strong {
+  color: #f8fff9;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.room-code-panel strong {
+  color: #ffcf7a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 30px;
+  letter-spacing: 0.08em;
+}
+
+.multiplayer-route-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  border: 1px solid rgba(120, 255, 226, 0.18);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px;
+}
+
+.multiplayer-route-panel div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid rgba(120, 255, 226, 0.16);
+  border-radius: 6px;
+  background: rgba(2, 8, 8, 0.2);
+  padding: 10px;
+}
+
+.multiplayer-route-panel span,
+.multiplayer-route-panel p {
+  color: #95bbb1;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.multiplayer-route-panel div > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lock-route-button {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  place-items: center;
+  border: 1px solid rgba(120, 255, 226, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #87fff0;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.lock-route-button::before {
+  content: "🔓";
+  font-size: 14px;
+}
+
+.lock-route-button.is-locked {
+  border-color: rgba(255, 176, 46, 0.42);
+  background: rgba(255, 176, 46, 0.14);
+  color: #ffcf7a;
+  box-shadow: var(--glow-amber);
+}
+
+.lock-route-button.is-locked::before {
+  content: "🔒";
+}
+
+.lock-route-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.multiplayer-route-panel strong {
+  overflow: hidden;
+  color: #f8fff9;
+  font-size: 16px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multiplayer-route-panel p {
+  grid-column: 1 / -1;
+  min-height: 18px;
+  margin: 0;
+  color: #ffcf7a;
+}
+
+.chat-log {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 180px;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid rgba(120, 255, 226, 0.16);
+  border-radius: var(--radius);
+  background: rgba(2, 8, 8, 0.28);
+  padding: 10px;
+}
+
+.chat-message {
+  display: grid;
+  gap: 3px;
+  max-width: 82%;
+  border: 1px solid rgba(120, 255, 226, 0.14);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 8px 10px;
+}
+
+.chat-message.local {
+  justify-self: end;
+  border-color: rgba(255, 176, 46, 0.22);
+  background: rgba(255, 176, 46, 0.08);
+}
+
+.chat-message.system {
+  justify-self: center;
+  max-width: 100%;
+  border-color: rgba(155, 215, 70, 0.2);
+  background: rgba(155, 215, 70, 0.08);
+}
+
+.chat-message strong {
+  color: #87fff0;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.chat-message.local strong {
+  color: #ffcf7a;
+}
+
+.chat-message.system strong {
+  color: #cdfc74;
+}
+
+.chat-message span {
+  overflow-wrap: anywhere;
+  color: #f8fff9;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.multiplayer-dock {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 30;
+  display: grid;
+  width: min(430px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid rgba(120, 255, 226, 0.28);
+  border-radius: var(--radius);
+  background: rgba(8, 23, 21, 0.96);
+  color: #f8fff9;
+  box-shadow: var(--glow-teal), var(--shadow);
+  backdrop-filter: blur(16px);
+}
+
+.multiplayer-dock-toggle {
+  display: grid;
+  grid-template-columns: auto minmax(52px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  border: 0;
+  background: transparent;
+  color: #f8fff9;
+  cursor: pointer;
+  padding: 9px 12px;
+  text-align: left;
+}
+
+.multiplayer-dock-toggle::after {
+  content: "▴";
+  color: #87fff0;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.multiplayer-dock.is-open .multiplayer-dock-toggle::after {
+  content: "▾";
+}
+
+.multiplayer-dock-toggle span {
+  color: #95bbb1;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.multiplayer-dock-toggle strong {
+  color: #ffcf7a;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.multiplayer-dock-toggle em {
+  justify-self: end;
+  min-width: 54px;
+  border: 1px solid rgba(120, 255, 226, 0.22);
+  border-radius: 999px;
+  background: rgba(0, 194, 173, 0.1);
+  color: #87fff0;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+  text-align: center;
+}
+
+.multiplayer-dock-body {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid rgba(120, 255, 226, 0.16);
+  padding: 10px;
+}
+
+.dock-chat-log {
+  min-height: 170px;
+  max-height: min(320px, 38vh);
+}
+
+.dock-chat-form input {
   min-width: 0;
   min-height: 44px;
   border: 1px solid rgba(120, 255, 226, 0.26);
@@ -2172,7 +2521,8 @@ body.is-loading .game-wiki-link {
 
 .result-dialog::backdrop,
 .game-mode-dialog::backdrop,
-.seed-dialog::backdrop {
+.seed-dialog::backdrop,
+.multiplayer-dialog::backdrop {
   background: rgba(2, 8, 8, 0.68);
 }
 
@@ -2200,6 +2550,10 @@ body.is-loading .game-wiki-link {
 
   .round-strip,
   .wiki-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .round-strip.has-opponent {
     grid-template-columns: 1fr;
   }
 
@@ -2289,12 +2643,37 @@ body.is-loading .game-wiki-link {
 
   .result-seed-panel,
   .result-actions,
-  .seed-actions {
+  .seed-actions,
+  .multiplayer-room-grid,
+  .join-room-row,
+  .chat-form,
+  .multiplayer-ready-actions,
+  .multiplayer-route-panel {
     grid-template-columns: 1fr;
   }
 
   .result-actions {
     display: grid;
+  }
+
+  .multiplayer-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .room-code-panel,
+  .connection-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .multiplayer-dock {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+  }
+
+  .multiplayer-dock-toggle {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
   }
 
   .home-copy h2 {
