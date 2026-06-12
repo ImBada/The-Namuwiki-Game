@@ -382,7 +382,9 @@ function render() {
   normalizeWikiArticleDom(els.wikiArticle);
   syncArticleLinkState();
   renderPath();
-  renderHomeChallenge();
+  if (!state.hasStarted && state.homeView === "home") {
+    renderHomeChallenge();
+  }
   renderHistory();
   renderRoundAction();
   renderTimer();
