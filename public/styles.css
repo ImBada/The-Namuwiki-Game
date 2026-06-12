@@ -889,11 +889,6 @@ a:focus-visible {
   box-shadow: 0 0 0 1px rgba(229, 70, 109, 0.12), 0 0 24px rgba(229, 70, 109, 0.16);
 }
 
-.difficulty-tile {
-  border-left-color: var(--amber);
-  box-shadow: var(--glow-amber), var(--shadow-soft);
-}
-
 .opponent-click-tile {
   border-left-color: var(--blue);
   box-shadow: 0 0 0 1px rgba(47, 140, 255, 0.12), 0 0 24px rgba(47, 140, 255, 0.16);

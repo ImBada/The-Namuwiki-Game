@@ -102,7 +102,6 @@ const els = {
   clickCount: document.querySelector("#clickCount"),
   opponentClickTile: document.querySelector("#opponentClickTile"),
   opponentClickCount: document.querySelector("#opponentClickCount"),
-  difficultyLabel: document.querySelector("#difficultyLabel"),
   articleTitle: document.querySelector("#articleTitle"),
   stickyGoalTitle: document.querySelector("#stickyGoalTitle"),
   sourceLink: document.querySelector("#sourceLink"),
@@ -597,7 +596,6 @@ function render() {
     "has-opponent",
     state.multiplayer.inGame
   );
-  els.difficultyLabel.textContent = round?.difficulty?.label || "-";
   els.articleTitle.textContent = article?.title || "라운드를 시작합니다";
   els.sourceLink.href = article?.canonicalUrl || "https://namu.wiki/";
   els.wikiArticle.innerHTML =
@@ -1442,7 +1440,6 @@ function saveCompletedRoundHistory() {
     pathLength: path.length,
     path,
     seed: state.round.seed || "",
-    difficultyLabel: state.round.difficulty?.label || "",
     modeLabel: historyModeLabel(state.round.seed || "")
   };
 
@@ -1487,7 +1484,6 @@ function normalizeHistoryRecord(record) {
     pathLength: Number.parseInt(record.pathLength, 10) || path.length,
     path,
     seed: String(record.seed || ""),
-    difficultyLabel: String(record.difficultyLabel || ""),
     modeLabel: String(record.modeLabel || historyModeLabel(record.seed || ""))
   };
 }
@@ -1644,7 +1640,6 @@ function currentResultRecord() {
     pathLength: path.length,
     path,
     seed: state.round.seed || "",
-    difficultyLabel: state.round.difficulty?.label || "",
     modeLabel: historyModeLabel(state.round.seed || "")
   };
 }

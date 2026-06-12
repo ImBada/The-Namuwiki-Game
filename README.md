@@ -16,7 +16,7 @@ Open `http://localhost:3000`.
 - Fetch and cache NamuWiki article metadata, sanitized article HTML, and internal article links.
 - Render the current NamuWiki article body in the game view and rewrite playable wiki links.
 - Let the player move only through links that exist on the current article.
-- Track elapsed time, click count, difficulty, link counts, and the visited path.
+- Track elapsed time, click count, link counts, and the visited path.
 - Filter sparse, namespace, sensitive, and goal subpage candidates for steadier rounds.
 
 ## Test
@@ -28,7 +28,7 @@ npm test
 ## Project Structure
 
 - `server.js`: Node HTTP entrypoint. It routes `/api/*` requests and serves `public/`.
-- `src/game.js`: round creation, click validation, article selection, signed round tokens, difficulty scoring, and NamuWiki document fetch/cache.
+- `src/game.js`: round creation, click validation, article selection, signed round tokens, round quality scoring, and NamuWiki document fetch/cache.
 - `src/daily-scores.js`: daily challenge leaderboard persistence.
 - `src/namu.js`: NamuWiki title normalization, article extraction, link filtering, and HTML sanitizing.
 - `src/http.js` and `src/static.js`: small HTTP and static-file helpers.

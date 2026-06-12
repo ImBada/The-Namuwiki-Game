@@ -122,8 +122,6 @@ export async function createRound(options = {}) {
       : await getArticle(pickCuratedTitle(startArticle.title, targetFallbackTitles));
   }
 
-  const difficulty = estimateDifficulty(startArticle, goalArticle);
-
   const round = {
     startTitle: startArticle.title,
     goalTitle: goalArticle.title,
@@ -131,7 +129,6 @@ export async function createRound(options = {}) {
     path: [startArticle.title],
     startedAt: Date.now(),
     clickCount: 0,
-    difficulty,
     seed
   };
 
@@ -688,7 +685,6 @@ function publicRound(round) {
     path: round.path,
     clickCount: round.clickCount,
     startedAt: round.startedAt,
-    difficulty: round.difficulty,
     seed: round.seed || ""
   };
 }
@@ -701,7 +697,6 @@ function encodeRoundToken(round) {
     path: round.path,
     clickCount: round.clickCount,
     startedAt: round.startedAt,
-    difficulty: round.difficulty,
     seed: round.seed || ""
   })).toString("base64url");
   return `${payload}.${signRoundPayload(payload)}`;
