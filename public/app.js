@@ -505,25 +505,33 @@ function renderHistory() {
     ...history.map((record) => {
       const item = document.createElement("li");
       const main = document.createElement("div");
+      const topLine = document.createElement("div");
       const title = document.createElement("strong");
-      const meta = document.createElement("span");
+      const meta = document.createElement("div");
       const route = document.createElement("p");
       const path = document.createElement("details");
       const summary = document.createElement("summary");
       const pathList = document.createElement("ol");
+      const actions = document.createElement("div");
       const shareButton = document.createElement("button");
 
       main.className = "history-main";
+      topLine.className = "history-top-line";
       title.textContent = record.goalTitle || "목표";
-      meta.textContent = [
+      meta.className = "history-meta";
+      for (const value of [
         record.modeLabel || "일반",
         formatHistoryDate(record.completedAt),
         `${record.clickCount || 0} 클릭`,
         formatSeconds(record.elapsedSeconds || 0)
-      ].join(" · ");
+      ]) {
+        const chip = document.createElement("span");
+        chip.textContent = value;
+        meta.append(chip);
+      }
       route.textContent = `${record.startTitle || "-"} → ${record.goalTitle || "-"}`;
 
-      summary.textContent = `${record.pathLength || record.path?.length || 0}개 문서 경로`;
+      summary.textContent = `${record.pathLength || record.path?.length || 0}개 문서 경로 보기`;
       pathList.className = "history-path-list";
       for (const pathTitle of record.path || []) {
         const pathItem = document.createElement("li");
@@ -538,8 +546,11 @@ function renderHistory() {
       shareButton.addEventListener("click", () => {
         shareRecordToTwitter(record, { button: shareButton });
       });
-      main.append(title, meta, route);
-      item.append(main, path, shareButton);
+      actions.className = "history-card-actions";
+      actions.append(path, shareButton);
+      topLine.append(title, meta);
+      main.append(topLine, route);
+      item.append(main, actions);
       return item;
     })
   );

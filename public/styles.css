@@ -232,14 +232,17 @@ a:focus-visible {
 
 .history-list > li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, auto) auto;
-  gap: 16px;
-  align-items: start;
-  min-height: 82px;
-  border: 1px solid rgba(120, 255, 226, 0.18);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  min-height: 118px;
+  border: 1px solid rgba(120, 255, 226, 0.2);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.06);
-  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(120, 255, 226, 0.08), transparent 42%),
+    rgba(255, 255, 255, 0.055);
+  padding: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .history-list > .history-empty {
@@ -251,68 +254,121 @@ a:focus-visible {
 
 .history-main {
   display: grid;
-  gap: 7px;
+  gap: 12px;
   min-width: 0;
 }
 
-.history-main strong {
+.history-top-line {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.history-top-line strong {
   overflow: hidden;
   color: #f8fff9;
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.history-main span {
-  color: #95bbb1;
+.history-meta {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: min(560px, 58%);
+}
+
+.history-meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid rgba(120, 255, 226, 0.18);
+  border-radius: 999px;
+  background: rgba(5, 18, 16, 0.45);
+  color: #a9d5cb;
+  padding: 0 9px;
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 800;
 }
 
 .history-main p {
   margin: 0;
   overflow: hidden;
   color: #d6f5ee;
-  font-size: 14px;
-  font-weight: 750;
+  font-size: 16px;
+  font-weight: 800;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.history-list details {
+.history-card-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
   min-width: 0;
-  border: 1px solid rgba(255, 176, 46, 0.28);
-  border-radius: 6px;
-  background: rgba(255, 176, 46, 0.08);
+}
+
+.history-list details {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid rgba(255, 176, 46, 0.22);
+  border-radius: var(--radius);
+  background: rgba(255, 176, 46, 0.065);
   color: #ffcf7a;
 }
 
 .history-list summary {
-  min-height: 42px;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   cursor: pointer;
-  padding: 11px 12px;
+  padding: 0 14px;
   font-size: 13px;
   font-weight: 850;
 }
 
 .history-path-list {
-  display: grid;
-  gap: 6px;
-  max-height: 180px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin: 0;
-  overflow: auto;
-  padding: 0 12px 12px 30px;
+  padding: 0 14px 14px;
+  list-style: none;
+  counter-reset: history-path;
 }
 
 .history-path-list li {
+  counter-increment: history-path;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
   color: #bad5cd;
+  padding: 0 11px 0 9px;
   font-size: 13px;
+  font-weight: 750;
   line-height: 1.35;
 }
 
+.history-path-list li::before {
+  margin-right: 6px;
+  color: #ffcf7a;
+  content: counter(history-path) ".";
+  font-weight: 900;
+}
+
 .history-share-button {
+  flex: 0 0 auto;
   min-height: 42px;
   white-space: nowrap;
 }
@@ -2116,6 +2172,24 @@ body.is-loading .game-wiki-link {
 
   .history-list > li {
     grid-template-columns: 1fr;
+  }
+
+  .history-top-line,
+  .history-card-actions {
+    flex-direction: column;
+  }
+
+  .history-meta {
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .history-main p {
+    white-space: normal;
+  }
+
+  .history-list details {
+    width: 100%;
   }
 
   .history-share-button {
