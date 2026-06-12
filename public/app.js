@@ -1747,14 +1747,27 @@ function drawShareCard(ctx, record) {
 function drawBrandHeader(ctx, record) {
   ctx.fillStyle = "#87fff0";
   ctx.font = "900 38px Inter, system-ui, sans-serif";
-  ctx.fillText("N", 102, 124);
+  const mark = "N";
+  const title = "나무위키 게임";
+  const markWidth = ctx.measureText(mark).width;
+  const brandGap = 24;
+
   ctx.fillStyle = "#ffcf7a";
   ctx.font = "900 25px Inter, system-ui, sans-serif";
-  ctx.fillText("나무위키 게임", 150, 123);
+  const titleWidth = ctx.measureText(title).width;
+  const brandX = 1098 - markWidth - brandGap - titleWidth;
+
+  ctx.fillStyle = "#87fff0";
+  ctx.font = "900 38px Inter, system-ui, sans-serif";
+  ctx.fillText(mark, brandX, 124);
+
+  ctx.fillStyle = "#ffcf7a";
+  ctx.font = "900 25px Inter, system-ui, sans-serif";
+  ctx.fillText(title, brandX + markWidth + brandGap, 123);
 
   ctx.fillStyle = "#87fff0";
   ctx.font = "900 18px Inter, system-ui, sans-serif";
-  drawRightAlignedFittedText(ctx, "클리어", 1098, 122, 180);
+  ctx.fillText("클리어", 102, 122);
 }
 
 function drawRouteTicket(ctx, record) {
