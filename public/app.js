@@ -15,8 +15,10 @@ import {
 } from "./wiki-dom.js";
 
 const HISTORY_STORAGE_KEY = "namuwiki-game:play-history";
+const SPECIFIED_GAMES_STORAGE_KEY = "namuwiki-game:specified-games";
 const HISTORY_LIMIT = 50;
 const VISIBLE_HISTORY_LIMIT = 30;
+const SPECIFIED_GAMES_LIMIT = 5;
 
 const state = {
   round: null,
@@ -77,6 +79,10 @@ const els = {
   randomGameButton: document.querySelector("#randomGameButton"),
   specifiedStartInput: document.querySelector("#specifiedStartInput"),
   specifiedGoalInput: document.querySelector("#specifiedGoalInput"),
+  specifiedGameButton: document.querySelector("#specifiedGameButton"),
+  specifiedGameStatus: document.querySelector("#specifiedGameStatus"),
+  recentSpecifiedGames: document.querySelector("#recentSpecifiedGames"),
+  recentSpecifiedGameList: document.querySelector("#recentSpecifiedGameList"),
   seedFromModeButton: document.querySelector("#seedFromModeButton"),
   seedForm: document.querySelector("#seedForm"),
   seedInput: document.querySelector("#seedInput"),
@@ -123,6 +129,9 @@ els.randomGameButton.addEventListener("click", () => {
   startFreshRound();
 });
 els.gameModeForm.addEventListener("submit", startSpecifiedRoundFromDialog);
+for (const input of [els.specifiedStartInput, els.specifiedGoalInput]) {
+  input.addEventListener("input", () => setSpecifiedGameStatus(""));
+}
 els.gameModeDialog.querySelector("[data-game-mode-cancel]").addEventListener("click", () => {
   els.gameModeDialog.close();
 });
@@ -157,8 +166,11 @@ function startFreshRound() {
 
 function openGameModeDialog() {
   const params = new URLSearchParams(window.location.search);
-  els.specifiedStartInput.value = params.get("start") || "";
-  els.specifiedGoalInput.value = params.get("goal") || "";
+  const recentGame = readSpecifiedGames()[0];
+  els.specifiedStartInput.value = params.get("start") || recentGame?.startTitle || "";
+  els.specifiedGoalInput.value = params.get("goal") || recentGame?.goalTitle || "";
+  setSpecifiedGameStatus("");
+  renderRecentSpecifiedGames();
   els.gameModeDialog.showModal();
 }
 
@@ -214,22 +226,39 @@ function startSeededRoundFromDialog(event) {
   startRound();
 }
 
-function startSpecifiedRoundFromDialog(event) {
+async function startSpecifiedRoundFromDialog(event) {
   event.preventDefault();
   const startTitle = normalizeTitleInput(els.specifiedStartInput.value);
   const goalTitle = normalizeTitleInput(els.specifiedGoalInput.value);
   if (!startTitle) {
+    setSpecifiedGameStatus("시작 문서를 입력해 주세요.");
     els.specifiedStartInput.focus();
     return;
   }
   if (!goalTitle) {
+    setSpecifiedGameStatus("목표 문서를 입력해 주세요.");
+    els.specifiedGoalInput.focus();
+    return;
+  }
+  if (normalizeClientTitle(startTitle) === normalizeClientTitle(goalTitle)) {
+    setSpecifiedGameStatus("시작 문서와 목표 문서는 서로 달라야 합니다.");
     els.specifiedGoalInput.focus();
     return;
   }
 
-  setSpecifiedRoundQuery(startTitle, goalTitle);
-  els.gameModeDialog.close();
-  startRound();
+  setSpecifiedGameLoading(true);
+  setSpecifiedGameStatus("문서를 확인하는 중입니다.");
+  try {
+    const data = await fetchJson(specifiedRoundRequestUrl(startTitle, goalTitle));
+    rememberSpecifiedGame(startTitle, goalTitle);
+    setSpecifiedRoundQuery(startTitle, goalTitle);
+    els.gameModeDialog.close();
+    beginRound(data);
+  } catch (error) {
+    setSpecifiedGameStatus(error.message);
+  } finally {
+    setSpecifiedGameLoading(false);
+  }
 }
 
 function handleRoundAction() {
@@ -299,6 +328,108 @@ function roundRequestUrl() {
   }
   const query = requestParams.toString();
   return query ? `/api/round?${query}` : "/api/round";
+}
+
+function specifiedRoundRequestUrl(startTitle, goalTitle) {
+  const params = new URLSearchParams({
+    start: startTitle,
+    goal: goalTitle
+  });
+  return `/api/round?${params}`;
+}
+
+function beginRound(data) {
+  stopTimer();
+  state.hasStarted = true;
+  document.body.classList.remove("is-home");
+  document.body.classList.add("is-game");
+  state.round = data.round;
+  state.goal = data.goal;
+  state.article = data.article;
+  state.completed = false;
+  state.completedElapsedSeconds = 0;
+  state.savedHistoryRoundId = "";
+  startTimer();
+  render();
+}
+
+function setSpecifiedGameStatus(message) {
+  els.specifiedGameStatus.textContent = message || "";
+  els.specifiedGameStatus.hidden = !message;
+}
+
+function setSpecifiedGameLoading(isLoading) {
+  els.specifiedGameButton.disabled = isLoading;
+  els.specifiedStartInput.disabled = isLoading;
+  els.specifiedGoalInput.disabled = isLoading;
+  els.specifiedGameButton.textContent = isLoading ? "확인 중" : "지정된 게임 시작";
+}
+
+function readSpecifiedGames() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SPECIFIED_GAMES_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.map(normalizeSpecifiedGame).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSpecifiedGames(games) {
+  localStorage.setItem(SPECIFIED_GAMES_STORAGE_KEY, JSON.stringify(games));
+}
+
+function normalizeSpecifiedGame(game) {
+  const startTitle = normalizeTitleInput(game?.startTitle);
+  const goalTitle = normalizeTitleInput(game?.goalTitle);
+  if (!startTitle || !goalTitle) return null;
+  if (normalizeClientTitle(startTitle) === normalizeClientTitle(goalTitle)) return null;
+  return {
+    startTitle,
+    goalTitle,
+    updatedAt: String(game?.updatedAt || "")
+  };
+}
+
+function rememberSpecifiedGame(startTitle, goalTitle) {
+  const record = {
+    startTitle,
+    goalTitle,
+    updatedAt: new Date().toISOString()
+  };
+  const nextGames = [
+    record,
+    ...readSpecifiedGames().filter(
+      (game) => (
+        normalizeClientTitle(game.startTitle) !== normalizeClientTitle(startTitle) ||
+        normalizeClientTitle(game.goalTitle) !== normalizeClientTitle(goalTitle)
+      )
+    )
+  ].slice(0, SPECIFIED_GAMES_LIMIT);
+  try {
+    writeSpecifiedGames(nextGames);
+  } catch (error) {
+    console.warn("최근 지정 게임을 저장하지 못했습니다.", error);
+  }
+}
+
+function renderRecentSpecifiedGames() {
+  const games = readSpecifiedGames();
+  els.recentSpecifiedGames.hidden = games.length === 0;
+  els.recentSpecifiedGameList.replaceChildren(
+    ...games.map((game) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = `${game.startTitle} → ${game.goalTitle}`;
+      button.title = button.textContent;
+      button.addEventListener("click", () => {
+        els.specifiedStartInput.value = game.startTitle;
+        els.specifiedGoalInput.value = game.goalTitle;
+        setSpecifiedGameStatus("");
+        els.specifiedStartInput.focus();
+      });
+      return button;
+    })
+  );
 }
 
 async function moveTo(title) {

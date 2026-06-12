@@ -71,12 +71,19 @@ export async function createRound(options = {}) {
   const requestedGoalTitle = normalizeTitle(options.goalTitle);
   const seed = normalizeRoundSeed(options.seed);
   const dailySeed = normalizeDailySeed(seed);
+  if (
+    requestedStartTitle &&
+    requestedGoalTitle &&
+    sameTitle(requestedStartTitle, requestedGoalTitle)
+  ) {
+    throw httpError(400, "시작 문서와 목표 문서는 서로 달라야 합니다.");
+  }
   if (dailySeed && !requestedStartTitle && !requestedGoalTitle) {
     return createPersistedDailyRound(dailySeed);
   }
 
   const startArticle = requestedStartTitle
-    ? await getArticle(requestedStartTitle)
+    ? await getRequestedArticle(requestedStartTitle, "시작")
     : seed
       ? await pickSeededArticleCandidate({
           seed,
@@ -90,7 +97,7 @@ export async function createRound(options = {}) {
           minLinks: 12
         });
   let goalArticle = requestedGoalTitle
-    ? await getArticle(requestedGoalTitle)
+    ? await getRequestedArticle(requestedGoalTitle, "목표")
     : seed
       ? await pickSeededArticleCandidate({
           seed,
@@ -133,6 +140,17 @@ export async function createRound(options = {}) {
     article: startArticle,
     goal: compactArticle(goalArticle)
   };
+}
+
+async function getRequestedArticle(title, roleLabel) {
+  try {
+    return await getArticle(title);
+  } catch (error) {
+    throw httpError(
+      error.statusCode || 502,
+      `${roleLabel} 문서 "${title}"을(를) 불러오지 못했습니다. 문서 제목이 정확한지 확인해 주세요.`
+    );
+  }
 }
 
 async function createPersistedDailyRound(seed) {

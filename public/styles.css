@@ -1947,6 +1947,54 @@ body.is-loading .game-wiki-link {
   min-height: 40px;
 }
 
+.specified-game-status {
+  min-height: 18px;
+  margin: -4px 0 0;
+  color: #ffcf7a !important;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.recent-specified-games {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid rgba(120, 255, 226, 0.14);
+  padding-top: 12px;
+}
+
+.recent-specified-games > span {
+  color: #95bbb1;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.recent-specified-games > div {
+  display: grid;
+  gap: 7px;
+}
+
+.recent-specified-games button {
+  overflow: hidden;
+  min-height: 34px;
+  border: 1px solid rgba(120, 255, 226, 0.2);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0 10px;
+  color: #bad5cd;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-specified-games button:hover {
+  border-color: rgba(120, 255, 226, 0.36);
+  background: rgba(0, 194, 173, 0.1);
+  color: #f8fff9;
+}
+
 .game-mode-cancel-button {
   justify-self: end;
   min-height: 38px;
