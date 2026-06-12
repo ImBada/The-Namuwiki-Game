@@ -1852,7 +1852,7 @@ function setShareStatus(statusElement, message) {
 function shareTextForRecord(record) {
   const route = shareTweetRouteText(record);
   const mode = record.modeLabel || "랜덤";
-  return `나무위키 게임 ${mode} 클리어!\n${route}\n${record.clickCount || 0} 클릭 · ${formatSeconds(record.elapsedSeconds || 0)}\n`;
+  return `나무위키 게임 ${mode} 클리어!\n${route}\n${record.clickCount || 0} 클릭 · ${formatSeconds(record.elapsedSeconds || 0)}\n#나무위키게임`;
 }
 
 function shareTweetRouteText(record) {
