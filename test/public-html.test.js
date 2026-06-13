@@ -51,3 +51,16 @@ test("public HTML includes the round loading screen and instructions", async () 
   assert.match(styles, /\.round-loading-start-button/);
   assert.match(styles, /\.round-loading-tips/);
 });
+
+test("history screen exposes tutorial auto-skip option", async () => {
+  const html = await readFile(join(process.cwd(), "public", "index.html"), "utf8");
+  const script = await readFile(join(process.cwd(), "public", "app.js"), "utf8");
+  const styles = await readFile(join(process.cwd(), "public", "styles.css"), "utf8");
+
+  assert.match(html, /id="tutorialAutoSkipToggle"/);
+  assert.match(html, /튜토리얼 자동 넘기기/);
+  assert.match(script, /tutorialAutoSkipToggle/);
+  assert.match(script, /toggleTutorialAutoSkip/);
+  assert.match(script, /removeLocalStorage\(ROUND_LOADING_SEEN_STORAGE_KEY\)/);
+  assert.match(styles, /\.tutorial-skip-toggle/);
+});

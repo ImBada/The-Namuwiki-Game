@@ -239,6 +239,40 @@ a:focus-visible {
   min-width: 0;
 }
 
+.history-kicker-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tutorial-skip-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  border: 1px solid rgba(120, 255, 226, 0.2);
+  border-radius: 999px;
+  background: rgba(5, 18, 16, 0.42);
+  color: #b8d6cf;
+  cursor: pointer;
+  padding: 0 10px 0 8px;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.tutorial-skip-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--teal);
+}
+
+.tutorial-skip-toggle:hover {
+  border-color: rgba(120, 255, 226, 0.36);
+  color: #e8fff9;
+}
+
 .history-heading h2 {
   margin: 0;
   color: #f8fff9;
@@ -3260,6 +3294,12 @@ body.is-loading .game-wiki-link {
 
   .history-screen {
     padding: 18px;
+  }
+
+  .history-kicker-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .history-heading h2 {

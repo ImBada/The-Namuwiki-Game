@@ -70,6 +70,7 @@ const els = {
   historyBackButton: document.querySelector("#historyBackButton"),
   clearHistoryButton: document.querySelector("#clearHistoryButton"),
   historyList: document.querySelector("#historyList"),
+  tutorialAutoSkipToggle: document.querySelector("#tutorialAutoSkipToggle"),
   storageNotes: document.querySelectorAll("[data-storage-note]"),
   dailyDateText: document.querySelector("#dailyDateText"),
   dailyTimeLeft: document.querySelector("#dailyTimeLeft"),
@@ -190,6 +191,7 @@ els.dailyChallengeButton.addEventListener("click", startDailyChallenge);
 els.historyButton.addEventListener("click", showHistory);
 els.historyBackButton.addEventListener("click", showHomeBoard);
 els.clearHistoryButton.addEventListener("click", clearHistory);
+els.tutorialAutoSkipToggle.addEventListener("change", toggleTutorialAutoSkip);
 els.homeButton.addEventListener("click", returnHome);
 els.newRoundButton.addEventListener("click", handleRoundAction);
 els.dialogNewRoundButton.addEventListener("click", () => {
@@ -1792,6 +1794,7 @@ function renderDailyLeaderboard() {
 function renderHistory() {
   const history = readHistory().slice(0, VISIBLE_HISTORY_LIMIT);
   els.clearHistoryButton.disabled = history.length === 0;
+  els.tutorialAutoSkipToggle.checked = isTutorialAutoSkipEnabled();
 
   if (history.length === 0) {
     const item = document.createElement("li");
@@ -1854,6 +1857,18 @@ function renderHistory() {
       return item;
     })
   );
+}
+
+function isTutorialAutoSkipEnabled() {
+  return readLocalStorage(ROUND_LOADING_SEEN_STORAGE_KEY) === "1";
+}
+
+function toggleTutorialAutoSkip() {
+  if (els.tutorialAutoSkipToggle.checked) {
+    writeLocalStorage(ROUND_LOADING_SEEN_STORAGE_KEY, "1");
+  } else {
+    removeLocalStorage(ROUND_LOADING_SEEN_STORAGE_KEY);
+  }
 }
 
 function saveCompletedRoundHistory() {
