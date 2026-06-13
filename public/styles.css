@@ -93,6 +93,7 @@ a:focus-visible {
 
 .app-shell {
   width: min(1500px, 100%);
+  max-width: 100%;
   margin: 0 auto;
   padding: 18px 24px 24px;
 }
@@ -100,6 +101,7 @@ a:focus-visible {
 .game-board {
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 
 .home-screen {
@@ -745,6 +747,7 @@ a:focus-visible {
 .content-grid,
 .path-panel,
 .license-line {
+  min-width: 0;
   width: 100%;
 }
 
@@ -1177,6 +1180,7 @@ a:focus-visible {
 
 .round-tile,
 .stat-tile {
+  min-width: 0;
   min-height: 76px;
   padding: 13px 15px;
   border-left: 5px solid var(--leaf);
@@ -3271,6 +3275,11 @@ body.is-loading .game-wiki-link {
 }
 
 @media (max-width: 560px) {
+  .app-shell {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .topbar {
     align-items: stretch;
     flex-direction: column;
@@ -3286,6 +3295,12 @@ body.is-loading .game-wiki-link {
     display: grid;
     grid-template-columns: 1fr;
     margin-top: 0;
+  }
+
+  .game-control-bar .secondary-button,
+  .game-control-bar .primary-button {
+    min-width: 0;
+    width: 100%;
   }
 
   .home-top-actions,
@@ -3444,8 +3459,13 @@ body.is-loading .game-wiki-link {
 
   .article-actions {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     margin-left: 0;
+  }
+
+  .source-link {
+    width: 100%;
+    text-align: center;
   }
 
   .sticky-goal {
@@ -3454,13 +3474,19 @@ body.is-loading .game-wiki-link {
   }
 
   .path-meta {
-    align-items: flex-end;
-    flex-direction: column;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: flex-start;
     gap: 4px;
+    width: 100%;
   }
 
   .path-meta strong {
-    max-width: 56vw;
+    max-width: 100%;
+  }
+
+  .path-list li {
+    max-width: min(100%, 240px);
   }
 
   .wiki-stage-header h2 {
