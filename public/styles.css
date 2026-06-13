@@ -817,6 +817,8 @@ a:focus-visible {
 
 .nickname-button {
   display: grid;
+  align-content: center;
+  justify-items: center;
   min-width: 112px;
   min-height: 44px;
   border: 1px solid rgba(120, 255, 226, 0.24);
@@ -825,7 +827,7 @@ a:focus-visible {
   color: #f8fff9;
   cursor: pointer;
   padding: 6px 12px;
-  text-align: left;
+  text-align: center;
 }
 
 .nickname-button span {
