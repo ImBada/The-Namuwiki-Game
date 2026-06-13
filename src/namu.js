@@ -200,11 +200,62 @@ function findArticleContentStart(html) {
   const espejoContentMatch = html.match(/<div\b[^>]*class=(["'])[^"']*\bwL2ljWQc\b[^"']*\1[^>]*>/i);
   if (espejoContentMatch?.index !== undefined) return espejoContentMatch.index;
 
-  const currentSkinContentMatch = html.match(/<div\b[^>]*class=(["'])[^"']*\bM2i3kfto\b[^"']*\bfcJpnsCI\b[^"']*\1[^>]*>/i);
-  if (currentSkinContentMatch?.index !== undefined) return currentSkinContentMatch.index;
+  const structuralContentStart = findArticleContentStartByMarkers(html);
+  if (structuralContentStart >= 0) return structuralContentStart;
 
   const paragraphMatch = html.match(/<div\b[^>]*class=(["'])[^"']*\bwiki-paragraph\b[^"']*\1[^>]*>/i);
   return paragraphMatch?.index ?? -1;
+}
+
+function findArticleContentStartByMarkers(html) {
+  const markerMatch = html.match(
+    /<(?:div|h[1-6]|table|span)\b[^>]*(?:wiki-paragraph|wiki-heading|wiki-table|wiki-macro-toc|footnote-list|toc-item)[^>]*>/i
+  );
+  if (markerMatch?.index === undefined) return -1;
+
+  const ancestors = findOpenDivAncestors(html, markerMatch.index);
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    const start = ancestors[index];
+    const candidate = extractBalancedElement(html, start);
+    if (looksLikeArticleContent(candidate)) return start;
+  }
+
+  return -1;
+}
+
+function findOpenDivAncestors(html, endIndex) {
+  const ancestors = [];
+  const tagPattern = /<\/?div\b[^>]*>/gi;
+  let match;
+
+  while ((match = tagPattern.exec(html)) && match.index < endIndex) {
+    if (match[0].startsWith("</")) {
+      ancestors.pop();
+    } else {
+      ancestors.push(match.index);
+    }
+  }
+
+  return ancestors;
+}
+
+function looksLikeArticleContent(html) {
+  const paragraphCount = countMatches(html, /\bwiki-paragraph\b/gi);
+  const headingCount =
+    countMatches(html, /\bwiki-heading\b/gi) +
+    countMatches(html, /<h[1-6]\b[^>]*\bid=(["'])s-\d+\1/gi);
+  const tableCount = countMatches(html, /\bwiki-table\b/gi);
+  const hasToc = /\bwiki-macro-toc\b|\btoc-item\b/i.test(html);
+  const textLength = normalizeTitle(stripTags(html)).length;
+
+  if (headingCount > 0 && paragraphCount > 0) return true;
+  if (hasToc && paragraphCount > 1) return true;
+  if (paragraphCount >= 3 && textLength >= 80) return true;
+  return tableCount > 0 && paragraphCount > 1 && textLength >= 80;
+}
+
+function countMatches(value, pattern) {
+  return [...String(value || "").matchAll(pattern)].length;
 }
 
 function extractBalancedElement(html, startIndex) {
