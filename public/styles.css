@@ -56,11 +56,11 @@ input {
 
 .shortcut-warning {
   position: fixed;
-  left: 50%;
-  bottom: 24px;
+  top: 18px;
+  right: 18px;
   z-index: 30;
   margin: 0;
-  transform: translateX(-50%) translateY(8px);
+  transform: translateY(-8px);
   border: 1px solid rgba(255, 176, 46, 0.42);
   border-radius: var(--radius);
   background: rgba(11, 29, 27, 0.94);
@@ -76,7 +76,7 @@ input {
 }
 
 .shortcut-warning.is-visible {
-  transform: translateX(-50%);
+  transform: translateY(0);
   opacity: 1;
 }
 
