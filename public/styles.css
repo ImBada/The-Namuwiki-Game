@@ -1147,8 +1147,9 @@ a:focus-visible {
 }
 
 .wiki-article .wiki-category-box .wiki-link-disabled {
-  color: #0275d8;
+  color: #59635f;
   cursor: default;
+  text-decoration: none;
 }
 
 .wiki-article .wiki-macro-toc {
