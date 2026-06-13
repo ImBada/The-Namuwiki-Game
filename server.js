@@ -28,7 +28,11 @@ export {
 
 export async function handleRequest(request, response) {
   try {
-    const url = new URL(request.url || "/", `http://${request.headers.host}`);
+    const forwardedProto = Array.isArray(request.headers["x-forwarded-proto"])
+      ? request.headers["x-forwarded-proto"][0]
+      : request.headers["x-forwarded-proto"];
+    const protocol = String(forwardedProto || "http").split(",", 1)[0].trim() || "http";
+    const url = new URL(request.url || "/", `${protocol}://${request.headers.host}`);
 
     if (url.pathname === "/api/health") {
       return sendJson(response, { ok: true });
@@ -98,7 +102,7 @@ export async function handleRequest(request, response) {
       return sendJson(response, await handleRewind(body));
     }
 
-    return serveStatic(url.pathname, response);
+    return serveStatic(url, response);
   } catch (error) {
     const status = error.statusCode || 500;
     sendJson(response, { error: error.message || "Server error" }, status);

@@ -1886,7 +1886,8 @@ function shareImageFilename(record) {
 }
 
 function openTwitterIntent(text, url) {
-  const params = new URLSearchParams({ text, url });
+  const tweetText = url ? `${text}\n${url}` : text;
+  const params = new URLSearchParams({ text: tweetText });
   window.open(`https://twitter.com/intent/tweet?${params}`, "_blank", "noopener,noreferrer");
 }
 
