@@ -84,7 +84,7 @@ export function extractInternalLinks(html, currentTitle = "") {
   const current = normalizeTitle(currentTitle);
   const linksByTitle = new Map();
   const anchorPattern =
-    /<a\b[^>]*href=(["'])\/w\/([^"']+)\1[^>]*>([\s\S]*?)<\/a>/gi;
+    /<a\b[^>]*href=(["'])(?:(?:https?:)?\/\/namu\.wiki)?\/w\/([^"']+)\1[^>]*>([\s\S]*?)<\/a>/gi;
   let match;
 
   while ((match = anchorPattern.exec(html))) {
@@ -130,7 +130,7 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
     .replace(/\s(?:contenteditable|tabindex)=("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
     .replace(/<div\b[^>]*class=(["'])[^"']*(?:WU8NJg0C|SWT3F7nb)[^"']*\1[^>]*>\s*(?:&nbsp;)?\s*<\/div>/gi, "")
     .replace(/<div\b[^>]*>\s*(?:&nbsp;)?\s*<\/div>/gi, "")
-    .replace(/<a\b([^>]*?)href=(["'])\/w\/([^"']+)\2([^>]*)>/gi, (match, before, quote, path, after) => {
+    .replace(/<a\b([^>]*?)href=(["'])(?:(?:https?:)?\/\/namu\.wiki)?\/w\/([^"']+)\2([^>]*)>/gi, (match, before, quote, path, after) => {
       const title = decodeTitleFromPath(path);
       const textTitle = escapeAttribute(title);
       const attrs = `${before} ${after}`.replace(/\sclass=(["'])[\s\S]*?\1/gi, "");

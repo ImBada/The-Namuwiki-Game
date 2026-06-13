@@ -115,6 +115,26 @@ test("sanitizes article HTML and rewrites playable links", () => {
   assert.doesNotMatch(html, /WU8NJg0C|&nbsp;<\/div>/);
 });
 
+test("treats absolute NamuWiki article URLs as playable internal links", () => {
+  const source = `
+    <a href="https://namu.wiki/w/%EC%84%B8%ED%82%A4%EB%A0%88%EC%9D%B4">절대 링크</a>
+    <a href="//namu.wiki/w/%EC%95%84%EC%8B%9C%EC%B9%B4%EB%B9%84">프로토콜 생략 링크</a>
+    <a href="https://example.com/w/%EC%99%B8%EB%B6%80">외부 링크</a>
+  `;
+
+  const links = extractInternalLinks(source, "히가 이즈미");
+  assert.deepEqual(
+    links.map((link) => link.title),
+    ["세키레이", "아시카비"]
+  );
+
+  const html = sanitizeArticleHtml(source, "히가 이즈미");
+  assert.match(html, /data-game-title="세키레이"/);
+  assert.match(html, /data-game-title="아시카비"/);
+  assert.match(html, /wiki-link-external-disabled/);
+  assert.doesNotMatch(html, /data-disabled-href="https:\/\/namu\.wiki\/w\//);
+});
+
 test("promotes NamuWiki lazy images without keeping loading-only classes", () => {
   const html = sanitizeArticleHtml(`
     <span class="HuBzh58z" style="width:20px;">
