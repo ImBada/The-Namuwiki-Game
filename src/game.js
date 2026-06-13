@@ -14,7 +14,7 @@ import { httpError } from "./http.js";
 
 const DOCUMENT_CACHE_TTL_DAYS = 7;
 const DOCUMENT_TTL_MS = 1000 * 60 * 60 * 24 * DOCUMENT_CACHE_TTL_DAYS;
-const DOCUMENT_CACHE_VERSION = 2;
+const DOCUMENT_CACHE_VERSION = 4;
 const DOCUMENT_CACHE_MAX_ENTRIES = Number.parseInt(
   process.env.DOCUMENT_CACHE_MAX_ENTRIES || "1000",
   10

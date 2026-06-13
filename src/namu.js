@@ -72,10 +72,13 @@ export function extractArticle(html, requestedTitle = "") {
 
 export function extractPlayableArticleHtml(html, currentTitle = "") {
   const contentStart = findArticleContentStart(html);
-  const rawContent =
+  let rawContent =
     contentStart >= 0
       ? extractBalancedElement(html, contentStart)
       : fallbackArticleContent(html);
+  rawContent = prependPreviousCategoryBox(html, contentStart, rawContent);
+  rawContent = trimLeadingChromeBeforeCategory(rawContent);
+  rawContent = trimTrailingPageChrome(rawContent);
 
   return sanitizeArticleHtml(rawContent, currentTitle);
 }
@@ -267,6 +270,102 @@ function looksLikePageShell(html) {
 
 function countMatches(value, pattern) {
   return [...String(value || "").matchAll(pattern)].length;
+}
+
+function trimLeadingChromeBeforeCategory(html) {
+  const categoryStart = findLeadingCategoryBoxStart(html);
+  return categoryStart >= 0 ? html.slice(categoryStart) : html;
+}
+
+function findLeadingCategoryBoxStart(html) {
+  const firstContentMarkerIndex = findFirstArticleMarkerIndex(html);
+  if (firstContentMarkerIndex < 0) return -1;
+
+  const categoryLabelPattern = />\s*분류\s*</g;
+  let match;
+  while ((match = categoryLabelPattern.exec(html)) && match.index < firstContentMarkerIndex) {
+    const ancestors = findOpenDivAncestors(html, match.index);
+    for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+      const start = ancestors[index];
+      const candidate = extractBalancedElement(html, start);
+      if (looksLikeCategoryBox(candidate)) return start;
+    }
+  }
+
+  return -1;
+}
+
+function findFirstArticleMarkerIndex(html) {
+  const markerMatch = html.match(
+    /<(?:div|h[1-6]|table|span)\b[^>]*(?:wiki-paragraph|wiki-heading|wiki-table|wiki-macro-toc|footnote-list|toc-item)[^>]*>/i
+  );
+  return markerMatch?.index ?? -1;
+}
+
+function looksLikeCategoryBox(html) {
+  return />\s*분류\s*</.test(html) && /<(?:ul|ol)\b[\s\S]*?<li\b/i.test(html);
+}
+
+function findPreviousCategoryBoxStart(html, articleStart) {
+  if (articleStart < 0) return -1;
+
+  const beforeArticle = html.slice(0, articleStart);
+  const categoryLabelPattern = />\s*분류\s*</g;
+  let categoryStart = -1;
+  let match;
+
+  while ((match = categoryLabelPattern.exec(beforeArticle))) {
+    const ancestors = findOpenDivAncestors(html, match.index);
+    for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+      const start = ancestors[index];
+      const candidate = extractBalancedElement(html, start);
+      if (
+        looksLikeCategoryBox(candidate) &&
+        !looksLikePageShell(html.slice(start, articleStart))
+      ) {
+        categoryStart = start;
+        break;
+      }
+    }
+  }
+
+  return categoryStart;
+}
+
+function prependPreviousCategoryBox(html, articleStart, rawContent) {
+  const categoryStart = findPreviousCategoryBoxStart(html, articleStart);
+  if (categoryStart < 0) return rawContent;
+
+  const categoryHtml = extractBalancedElement(html, categoryStart);
+  if (!categoryHtml || rawContent.includes(categoryHtml)) return rawContent;
+  return `${categoryHtml}${rawContent}`;
+}
+
+function trimTrailingPageChrome(html) {
+  const pageChromeStart = findTrailingPageChromeStart(html);
+  return pageChromeStart >= 0 ? html.slice(0, pageChromeStart) : html;
+}
+
+function findTrailingPageChromeStart(html) {
+  const markerPattern =
+    /이\s*저작물은|기여하신\s*문서의\s*저작권|Operado\s+por\s+umanle|Impulsado\s+por\s+the\s+seed|This\s+site\s+is\s+protected\s+by\s+(?:reCAPTCHA|hCaptcha)/i;
+  const markerMatch = markerPattern.exec(html);
+  if (!markerMatch) return -1;
+
+  const ancestors = findOpenDivAncestors(html, markerMatch.index);
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    const start = ancestors[index];
+    const candidate = extractBalancedElement(html, start);
+    if (looksLikeFooterChrome(candidate)) return start;
+  }
+
+  return markerMatch.index;
+}
+
+function looksLikeFooterChrome(html) {
+  return /이\s*저작물은|기여하신\s*문서의\s*저작권|namu\.wiki|Operado\s+por\s+umanle|Impulsado\s+por\s+the\s+seed|This\s+site\s+is\s+protected\s+by\s+(?:reCAPTCHA|hCaptcha)/i.test(
+    html
+  );
 }
 
 function extractBalancedElement(html, startIndex) {

@@ -235,6 +235,10 @@ test("keeps category boxes when structural markers are inside a nested article b
     <main>
       <nav><a href="/w/%EC%B5%9C%EA%B7%BC%20%EB%B3%80%EA%B2%BD">최근 변경</a></nav>
       <div class="generated-article-wrapper">
+        <div class="generated-page-actions">
+          <a href="/edit/%ED%9E%88%EA%B0%80%20%EC%9D%B4%EC%A6%88%EB%AF%B8">편집</a>
+          <img src="/skins/espejo/logo.png" alt="나무위키">
+        </div>
         <div class="generated-category-box">
           <span>분류</span>
           <ul><li><a href="/w/%EB%B6%84%EB%A5%98:%EC%84%B8%ED%82%A4%EB%A0%88%EC%9D%B4">세키레이</a></li></ul>
@@ -254,5 +258,35 @@ test("keeps category boxes when structural markers are inside a nested article b
   assert.match(articleHtml, />분류</);
   assert.match(articleHtml, /data-disabled-title="분류:세키레이"/);
   assert.match(articleHtml, /1\. 개요/);
-  assert.doesNotMatch(articleHtml, /최근 변경|footer/);
+  assert.doesNotMatch(articleHtml, /최근 변경|편집|나무위키|logo\.png|footer/);
+});
+
+test("removes trailing NamuWiki license and footer chrome from extracted article bodies", () => {
+  const html = `
+    <main>
+      <div class="generated-article-wrapper">
+        <div class="generated-category-box">
+          <span>분류</span>
+          <ul><li><a href="/w/%EB%B6%84%EB%A5%98:%EC%98%81%EC%96%B4%20%EB%8B%A8%EC%96%B4">영어 단어</a></li></ul>
+        </div>
+        <div class="generated-content-block">
+          <div class="wiki-paragraph">break의 과거분사형.</div>
+          <h2 class="wiki-heading" id="s-1">1. break의 과거분사형</h2>
+          <div class="wiki-paragraph"><a href="/w/BEMANI">BEMANI</a> 시리즈의 수록곡.</div>
+        </div>
+        <div class="generated-footer">
+          <p>이 저작물은 CC BY-NC-SA 2.0 KR에 따라 이용할 수 있습니다.</p>
+          <ul><li>namu.wiki</li><li>Operado por umanle S.R.L.</li></ul>
+          <p>This site is protected by reCAPTCHA and hCaptcha.</p>
+        </div>
+        <div class="generated-floating-buttons">맨 위로 맨 아래로</div>
+      </div>
+    </main>
+  `;
+
+  const articleHtml = extractPlayableArticleHtml(html, "Broken");
+  assert.match(articleHtml, />분류</);
+  assert.match(articleHtml, /break의 과거분사형/);
+  assert.match(articleHtml, /data-game-title="BEMANI"/);
+  assert.doesNotMatch(articleHtml, /CC BY-NC-SA|Operado por umanle|reCAPTCHA|hCaptcha|맨 위로|맨 아래로/);
 });
