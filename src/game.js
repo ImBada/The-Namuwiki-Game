@@ -14,6 +14,7 @@ import { httpError } from "./http.js";
 
 const DOCUMENT_CACHE_TTL_DAYS = 7;
 const DOCUMENT_TTL_MS = 1000 * 60 * 60 * 24 * DOCUMENT_CACHE_TTL_DAYS;
+const DOCUMENT_CACHE_VERSION = 2;
 const DOCUMENT_CACHE_MAX_ENTRIES = Number.parseInt(
   process.env.DOCUMENT_CACHE_MAX_ENTRIES || "1000",
   10
@@ -452,6 +453,11 @@ async function readCachedArticleFromDisk(key, now = Date.now()) {
       return null;
     }
 
+    if (payload.version !== DOCUMENT_CACHE_VERSION) {
+      await unlinkCacheFiles(key);
+      return null;
+    }
+
     if (!payload.article || normalizeTitle(payload.article.title) === "") {
       return null;
     }
@@ -469,7 +475,7 @@ async function writeCachedArticleToDisk(key, article, fetchedAt = Date.now()) {
   try {
     await mkdir(DOCUMENT_CACHE_DIR, { recursive: true });
     const payload = JSON.stringify({
-      version: 1,
+      version: DOCUMENT_CACHE_VERSION,
       encoding: "br",
       key,
       fetchedAt,

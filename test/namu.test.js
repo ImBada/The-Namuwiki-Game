@@ -162,3 +162,27 @@ test("extracts the article body from the current NamuWiki skin content wrapper",
   assert.match(articleHtml, /data-game-title="영화"/);
   assert.doesNotMatch(articleHtml, /최근 변경|large payload/);
 });
+
+test("extracts the full article body from the newer NamuWiki content wrapper", () => {
+  const html = `
+    <main>
+      <nav><a href="/w/%EC%B5%9C%EA%B7%BC%20%EB%B3%80%EA%B2%BD">최근 변경</a></nav>
+      <div class="vbcUYWuj"><h1>히가 이즈미</h1></div>
+      <div class="M2i3kfto fcJpnsCI">
+        <div class="wiki-paragraph"><a href="/w/%EC%84%B8%ED%82%A4%EB%A0%88%EC%9D%B4">세키레이</a> 사방 아시카비</div>
+        <h2 id="s-1">1. 개요</h2>
+        <div class="wiki-paragraph">만화 <a href="/w/%EC%84%B8%ED%82%A4%EB%A0%88%EC%9D%B4">세키레이</a>의 등장인물.</div>
+        <h2 id="s-2">2. 작중 행적</h2>
+        <div class="wiki-paragraph"><a href="/w/%EC%95%84%EC%8B%9C%EC%B9%B4%EB%B9%84">아시카비</a>로서 등장한다.</div>
+      </div>
+      <script>window.__NUXT__ = "large payload";</script>
+    </main>
+  `;
+
+  const articleHtml = extractPlayableArticleHtml(html, "히가 이즈미");
+  assert.match(articleHtml, /1\. 개요/);
+  assert.match(articleHtml, /2\. 작중 행적/);
+  assert.match(articleHtml, /data-game-title="세키레이"/);
+  assert.match(articleHtml, /data-game-title="아시카비"/);
+  assert.doesNotMatch(articleHtml, /최근 변경|large payload|<h1>히가 이즈미/);
+});

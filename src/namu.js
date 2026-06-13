@@ -200,6 +200,9 @@ function findArticleContentStart(html) {
   const espejoContentMatch = html.match(/<div\b[^>]*class=(["'])[^"']*\bwL2ljWQc\b[^"']*\1[^>]*>/i);
   if (espejoContentMatch?.index !== undefined) return espejoContentMatch.index;
 
+  const currentSkinContentMatch = html.match(/<div\b[^>]*class=(["'])[^"']*\bM2i3kfto\b[^"']*\bfcJpnsCI\b[^"']*\1[^>]*>/i);
+  if (currentSkinContentMatch?.index !== undefined) return currentSkinContentMatch.index;
+
   const paragraphMatch = html.match(/<div\b[^>]*class=(["'])[^"']*\bwiki-paragraph\b[^"']*\1[^>]*>/i);
   return paragraphMatch?.index ?? -1;
 }
