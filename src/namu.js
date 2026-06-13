@@ -214,13 +214,20 @@ function findArticleContentStartByMarkers(html) {
   if (markerMatch?.index === undefined) return -1;
 
   const ancestors = findOpenDivAncestors(html, markerMatch.index);
+  let articleStart = -1;
   for (let index = ancestors.length - 1; index >= 0; index -= 1) {
     const start = ancestors[index];
     const candidate = extractBalancedElement(html, start);
-    if (looksLikeArticleContent(candidate)) return start;
+    if (looksLikePageShell(candidate)) {
+      if (articleStart >= 0) break;
+      continue;
+    }
+    if (looksLikeArticleContent(candidate)) {
+      articleStart = start;
+    }
   }
 
-  return -1;
+  return articleStart;
 }
 
 function findOpenDivAncestors(html, endIndex) {
@@ -252,6 +259,10 @@ function looksLikeArticleContent(html) {
   if (hasToc && paragraphCount > 1) return true;
   if (paragraphCount >= 3 && textLength >= 80) return true;
   return tableCount > 0 && paragraphCount > 1 && textLength >= 80;
+}
+
+function looksLikePageShell(html) {
+  return /<(?:nav|header|footer|script)\b/i.test(html);
 }
 
 function countMatches(value, pattern) {

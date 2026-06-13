@@ -229,3 +229,30 @@ test("extracts article bodies by stable wiki markers instead of generated skin c
   assert.match(articleHtml, /data-game-title="세키레이"/);
   assert.doesNotMatch(articleHtml, /top-shell|footer/);
 });
+
+test("keeps category boxes when structural markers are inside a nested article block", () => {
+  const html = `
+    <main>
+      <nav><a href="/w/%EC%B5%9C%EA%B7%BC%20%EB%B3%80%EA%B2%BD">최근 변경</a></nav>
+      <div class="generated-article-wrapper">
+        <div class="generated-category-box">
+          <span>분류</span>
+          <ul><li><a href="/w/%EB%B6%84%EB%A5%98:%EC%84%B8%ED%82%A4%EB%A0%88%EC%9D%B4">세키레이</a></li></ul>
+        </div>
+        <div class="generated-content-block">
+          <div class="wiki-paragraph"><a href="/w/%EC%84%B8%ED%82%A4%EB%A0%88%EC%9D%B4">세키레이</a> 사방 아시카비</div>
+          <div class="wiki-macro-toc"><span class="toc-item"><a href="#s-1">1</a>. 개요</span></div>
+          <h2 class="wiki-heading" id="s-1">1. 개요</h2>
+          <div class="wiki-paragraph">만화 세키레이의 등장인물.</div>
+        </div>
+      </div>
+      <footer>footer</footer>
+    </main>
+  `;
+
+  const articleHtml = extractPlayableArticleHtml(html, "히가 이즈미");
+  assert.match(articleHtml, />분류</);
+  assert.match(articleHtml, /data-disabled-title="분류:세키레이"/);
+  assert.match(articleHtml, /1\. 개요/);
+  assert.doesNotMatch(articleHtml, /최근 변경|footer/);
+});
