@@ -41,6 +41,7 @@ const state = {
   homeView: "home",
   goalPreviewOpen: false,
   goalPreviewRenderKey: "",
+  roundStartedAt: 0,
   completedElapsedSeconds: 0,
   isMoving: false,
   roundLoading: {
@@ -318,6 +319,7 @@ async function startRoundWithLoading(loadRound, options = {}) {
   state.goal = null;
   state.article = null;
   state.completed = false;
+  state.roundStartedAt = 0;
   state.completedElapsedSeconds = 0;
   state.savedHistoryRoundId = "";
   state.hasStarted = true;
@@ -521,6 +523,7 @@ function restoreSpecifiedRoundDialog(startTitle, goalTitle, message) {
   state.goal = null;
   state.article = null;
   state.completed = false;
+  state.roundStartedAt = 0;
   state.completedElapsedSeconds = 0;
   state.savedHistoryRoundId = "";
   state.hasStarted = false;
@@ -558,6 +561,7 @@ function returnHome() {
   state.goal = null;
   state.article = null;
   state.completed = false;
+  state.roundStartedAt = 0;
   state.completedElapsedSeconds = 0;
   state.isMoving = false;
   endRoundLoading();
@@ -586,6 +590,7 @@ function returnToMultiplayerLobby() {
   state.goal = null;
   state.article = null;
   state.completed = false;
+  state.roundStartedAt = 0;
   state.completedElapsedSeconds = 0;
   state.isMoving = false;
   endRoundLoading();
@@ -661,6 +666,7 @@ function beginRound(data) {
   state.goal = data.goal;
   state.article = data.article;
   state.completed = false;
+  state.roundStartedAt = Date.now();
   state.completedElapsedSeconds = 0;
   state.savedHistoryRoundId = "";
   endRoundLoading();
@@ -800,6 +806,7 @@ async function rewindToPathIndex(pathIndex) {
     state.round = data.round;
     state.article = data.article;
     state.completed = false;
+    state.roundStartedAt = state.roundStartedAt || Date.now();
     state.completedElapsedSeconds = 0;
     broadcastMultiplayerClicks();
     render();
@@ -2757,10 +2764,10 @@ function elapsedSecondsForRound() {
   if (state.completed && state.completedElapsedSeconds) {
     return state.completedElapsedSeconds;
   }
-  if (!state.round?.startedAt) return 0;
+  if (!state.roundStartedAt) return 0;
   return Math.max(
     0,
-    Math.floor((Date.now() - state.round.startedAt) / 1000)
+    Math.floor((Date.now() - state.roundStartedAt) / 1000)
   );
 }
 
