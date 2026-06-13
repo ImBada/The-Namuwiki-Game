@@ -3268,7 +3268,6 @@ body.is-loading .game-wiki-link {
   }
 
   .topbar,
-  .path-panel,
   .wiki-stage-header {
     position: static;
   }
@@ -3473,16 +3472,58 @@ body.is-loading .game-wiki-link {
     max-width: none;
   }
 
+  .path-panel {
+    top: 8px;
+    z-index: 9;
+    max-height: 34vh;
+    padding: 12px;
+  }
+
+  .panel-heading {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 6px;
+  }
+
+  .panel-heading h2 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 18px;
+    white-space: nowrap;
+  }
+
+  .panel-heading #pathCount {
+    min-width: 0;
+    color: #95bbb1;
+    text-align: right;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+
   .path-meta {
-    align-items: flex-start;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 4px;
-    width: 100%;
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 18ch);
+    align-items: center;
+    justify-content: end;
+    gap: 6px;
+    min-width: 0;
+    padding-right: 2px;
   }
 
   .path-meta strong {
-    max-width: 100%;
+    min-width: 0;
+    max-width: 18ch;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .path-list {
+    gap: 8px;
+    margin-top: 10px;
   }
 
   .path-list li {
