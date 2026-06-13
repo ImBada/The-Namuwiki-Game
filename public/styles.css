@@ -3474,65 +3474,128 @@ body.is-loading .game-wiki-link {
   }
 
   .round-loading-screen {
-    gap: 14px;
-    padding: 16px;
+    gap: 12px;
+    border-color: rgba(120, 255, 226, 0.2);
+    background:
+      linear-gradient(150deg, rgba(0, 194, 173, 0.14), transparent 48%),
+      linear-gradient(320deg, rgba(255, 176, 46, 0.08), transparent 56%),
+      rgba(8, 23, 21, 0.96);
+    padding: 14px;
   }
 
   .round-loading-header {
-    padding: 16px;
+    gap: 14px;
+    border-color: rgba(120, 255, 226, 0.18);
+    background: rgba(5, 18, 16, 0.52);
+    padding: 16px 14px;
+  }
+
+  .round-loading-main {
+    gap: 8px;
+  }
+
+  .round-loading-kicker {
+    font-size: 11px;
   }
 
   .round-loading-main h2 {
-    font-size: 28px;
+    font-size: 26px;
+    line-height: 1.15;
   }
 
   .round-loading-main p {
-    font-size: 15px;
+    font-size: 14px;
+    line-height: 1.45;
   }
 
   .round-loading-countdown {
-    width: 112px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    justify-self: stretch;
+    gap: 6px;
+    width: 100%;
+    min-height: 64px;
+    aspect-ratio: auto;
+    border-radius: var(--radius);
+    background:
+      linear-gradient(135deg, rgba(255, 176, 46, 0.16), rgba(255, 176, 46, 0.04)),
+      rgba(255, 255, 255, 0.055);
   }
 
   .round-loading-countdown span {
-    font-size: 44px;
-  }
-
-  .round-loading-start-button {
-    padding: 17px 13px;
-  }
-
-  .round-loading-start-button strong {
-    font-size: 30px;
-  }
-
-  .round-loading-start-button span {
-    max-width: 84px;
-    font-size: 9px;
+    padding: 0;
+    font-size: 36px;
+    line-height: 1;
   }
 
   .round-loading-countdown small {
-    margin-bottom: 16px;
+    margin: 7px 0 0;
+    font-size: 12px;
+  }
+
+  .round-loading-countdown.is-start-button {
+    min-height: 74px;
+    border-color: rgba(255, 105, 123, 0.58);
+    border-radius: var(--radius);
+    background:
+      linear-gradient(135deg, rgba(229, 70, 109, 0.54), rgba(143, 39, 65, 0.82)),
+      #6f1f32;
+    box-shadow: 0 0 0 1px rgba(255, 143, 170, 0.2), 0 12px 26px rgba(229, 70, 109, 0.24);
+  }
+
+  .round-loading-start-button {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    align-content: center;
+    gap: 7px;
+    min-height: 74px;
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    text-align: center;
+  }
+
+  .round-loading-start-button strong {
+    font-size: 28px;
+  }
+
+  .round-loading-start-button span {
+    max-width: none;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .round-loading-tips-heading {
+    margin-top: 0;
+  }
+
+  .round-loading-tips-heading span {
+    font-size: 12px;
   }
 
   .round-loading-tips li {
-    grid-template-columns: 32px minmax(0, 1fr);
+    grid-template-columns: 30px minmax(0, 1fr);
     gap: 10px;
-    padding: 13px;
+    border-color: rgba(120, 255, 226, 0.16);
+    background: rgba(255, 255, 255, 0.045);
+    padding: 12px;
   }
 
   .round-loading-tips li::before {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
+    align-self: start;
   }
 
   .round-loading-tips strong {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .round-loading-tips span {
     grid-column: 2;
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1.5;
     max-width: none;
   }
 
