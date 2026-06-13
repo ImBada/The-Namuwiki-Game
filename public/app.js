@@ -925,6 +925,7 @@ function renderGoalPreview() {
     els.goalPreviewLink.href = sourceUrl;
     els.goalPreviewLink.hidden = !hasGoal;
     normalizeWikiArticleDom(els.goalPreview);
+    normalizeGoalPreviewDom();
     state.goalPreviewRenderKey = renderKey;
   }
 
@@ -932,6 +933,24 @@ function renderGoalPreview() {
   els.goalTile.classList.toggle("is-preview-open", isPreviewVisible);
   els.goalTile.setAttribute("aria-expanded", isPreviewVisible ? "true" : "false");
   els.goalPreview.setAttribute("aria-hidden", isPreviewVisible ? "false" : "true");
+}
+
+function normalizeGoalPreviewDom() {
+  for (const content of [els.goalPreviewDescription, els.goalPreviewExcerpt]) {
+    for (const strong of [...content.querySelectorAll("strong")]) {
+      strong.replaceWith(...strong.childNodes);
+    }
+
+    for (const element of [...content.querySelectorAll("[style]")]) {
+      const color = element.style.color.replace(/\s+/g, "").toLowerCase();
+      if (color === "white" || color === "#fff" || color === "#ffffff" || color === "rgb(255,255,255)") {
+        element.style.removeProperty("color");
+      }
+      if (!element.getAttribute("style")?.trim()) {
+        element.removeAttribute("style");
+      }
+    }
+  }
 }
 
 function resetGoalPreviewState() {
