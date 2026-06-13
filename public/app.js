@@ -1712,7 +1712,7 @@ function normalizeRoomCodeInput(value) {
 
 function renderRoundAction() {
   const shouldForfeit = state.multiplayer.inGame || isDailyChallengeRound();
-  els.homeButton.hidden = state.multiplayer.inGame;
+  els.homeButton.hidden = shouldForfeit;
   els.newRoundButton.textContent = shouldForfeit ? "게임 포기" : "새 무작위 라운드";
 }
 

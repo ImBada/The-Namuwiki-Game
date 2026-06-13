@@ -906,12 +906,13 @@ a:focus-visible {
   position: relative;
   z-index: 7;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) 130px 110px 120px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.25fr) 120px 104px minmax(210px, max-content);
+  align-items: stretch;
   gap: 10px;
 }
 
 .round-strip.has-opponent {
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.35fr) 120px 104px 120px 118px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) 112px 96px 112px minmax(210px, max-content);
 }
 
 .round-loading-screen {
@@ -1150,9 +1151,11 @@ a:focus-visible {
 
 .game-control-bar {
   display: flex;
+  align-items: center;
+  align-self: stretch;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: -6px;
+  margin-top: 0;
 }
 
 .game-control-bar .secondary-button,
