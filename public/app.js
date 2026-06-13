@@ -941,6 +941,10 @@ function normalizeGoalPreviewDom() {
       strong.replaceWith(...strong.childNodes);
     }
 
+    for (const footnote of [...content.querySelectorAll(".wiki-fn-content")]) {
+      footnote.remove();
+    }
+
     for (const element of [...content.querySelectorAll("[style]")]) {
       const color = element.style.color.replace(/\s+/g, "").toLowerCase();
       if (color === "white" || color === "#fff" || color === "#ffffff" || color === "rgb(255,255,255)") {
