@@ -54,6 +54,32 @@ input {
   display: none !important;
 }
 
+.shortcut-warning {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 30;
+  margin: 0;
+  transform: translateX(-50%) translateY(8px);
+  border: 1px solid rgba(255, 176, 46, 0.42);
+  border-radius: var(--radius);
+  background: rgba(11, 29, 27, 0.94);
+  box-shadow: var(--shadow-soft), var(--glow-amber);
+  color: #fff5d6;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.shortcut-warning.is-visible {
+  transform: translateX(-50%);
+  opacity: 1;
+}
+
 a {
   color: var(--teal);
 }

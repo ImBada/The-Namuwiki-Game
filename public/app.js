@@ -19,6 +19,11 @@ const HISTORY_LIMIT = 50;
 const VISIBLE_HISTORY_LIMIT = 30;
 const SPECIFIED_GAMES_LIMIT = 5;
 const MULTIPLAYER_POLL_MS = 1000;
+const SHORTCUT_WARNING_MS = 1800;
+
+window.addEventListener("keydown", blockBrowserFindShortcut, { capture: true });
+
+let shortcutWarningTimer = null;
 
 const state = {
   round: null,
@@ -125,8 +130,29 @@ const els = {
   dockChatSummary: document.querySelector("#dockChatSummary"),
   dockChatLog: document.querySelector("#dockChatLog"),
   dockChatForm: document.querySelector("#dockChatForm"),
-  dockChatInput: document.querySelector("#dockChatInput")
+  dockChatInput: document.querySelector("#dockChatInput"),
+  shortcutWarning: document.querySelector("#shortcutWarning")
 };
+
+function blockBrowserFindShortcut(event) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+    event.preventDefault();
+    event.stopPropagation();
+    showShortcutWarning();
+  }
+}
+
+function showShortcutWarning() {
+  if (!els.shortcutWarning) return;
+
+  els.shortcutWarning.hidden = false;
+  els.shortcutWarning.classList.add("is-visible");
+  clearTimeout(shortcutWarningTimer);
+  shortcutWarningTimer = setTimeout(() => {
+    els.shortcutWarning.classList.remove("is-visible");
+    els.shortcutWarning.hidden = true;
+  }, SHORTCUT_WARNING_MS);
+}
 
 els.startGameButton.addEventListener("click", openGameModeDialog);
 els.multiplayerButton.addEventListener("click", openMultiplayerDialog);
