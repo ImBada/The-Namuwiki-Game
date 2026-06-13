@@ -118,7 +118,42 @@
           </div>
         </header>
 
-        <section class="round-strip">
+        <section id="roundLoadingScreen" class="round-loading-screen" aria-labelledby="roundLoadingTitle" aria-live="polite" hidden>
+          <div class="round-loading-header">
+            <div class="round-loading-main">
+              <span class="round-loading-kicker">ROUND READY</span>
+              <h2 id="roundLoadingTitle">문서를 불러오는 중입니다</h2>
+              <p id="roundLoadingMessage">실제 문서와 목표 정보를 준비하고 있습니다.</p>
+            </div>
+            <div class="round-loading-countdown" aria-label="게임 시작 카운트다운">
+              <span id="roundLoadingCountdown">3</span>
+              <small id="roundLoadingCountdownUnit">초</small>
+              <button id="roundLoadingStartButton" class="round-loading-start-button" type="button" hidden>
+                <strong>시작</strong>
+                <span>다음 플레이부턴 시간이 끝나면 자동으로 게임이 시작됩니다.</span>
+              </button>
+            </div>
+          </div>
+          <div class="round-loading-tips-heading">
+            <span>게임 조작법</span>
+          </div>
+          <ol class="round-loading-tips" aria-label="게임 조작법">
+            <li>
+              <strong>목표 미리보기</strong>
+              <span>목표 부분에 마우스를 대거나 클릭하면 해당 문서의 일부를 미리볼 수 있습니다.</span>
+            </li>
+            <li>
+              <strong>경로 되돌아가기</strong>
+              <span>경로 부분에서 이전 경로 블록을 클릭하면 그 문서로 되돌아갈 수 있습니다.</span>
+            </li>
+            <li>
+              <strong>검색 제한</strong>
+              <span>브라우저 Ctrl/Cmd+F 찾기는 사용할 수 없습니다.</span>
+            </li>
+          </ol>
+        </section>
+
+        <section class="round-strip" data-round-play-area>
           <article class="round-tile">
             <span>시작</span>
             <strong id="startTitle">-</strong>
@@ -166,12 +201,12 @@
           </article>
         </section>
 
-        <section class="game-control-bar" aria-label="게임 제어">
+        <section class="game-control-bar" aria-label="게임 제어" data-round-play-area>
           <button id="homeButton" class="secondary-button" type="button">메인</button>
           <button id="newRoundButton" class="primary-button" type="button">새 무작위 라운드</button>
         </section>
 
-        <section class="path-panel">
+        <section class="path-panel" data-round-play-area>
           <div class="panel-heading">
             <h2>경로</h2>
             <div class="path-meta">
@@ -183,7 +218,7 @@
           <ol id="pathList" class="path-list"></ol>
         </section>
 
-        <section class="content-grid">
+        <section class="content-grid" data-round-play-area>
           <article class="wiki-stage">
             <header class="wiki-stage-header">
               <div>
@@ -204,7 +239,7 @@
           </article>
         </section>
 
-        <footer class="license-line">
+        <footer class="license-line" data-round-play-area>
           문서 데이터 출처: <a href="https://namu.wiki/" rel="noreferrer" target="_blank">namu.wiki</a>.
           문서 내용은 각 문서의 라이선스를 따릅니다.
         </footer>

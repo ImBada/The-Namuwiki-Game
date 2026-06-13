@@ -15,11 +15,13 @@ import {
 
 const HISTORY_STORAGE_KEY = "namuwiki-game:play-history";
 const SPECIFIED_GAMES_STORAGE_KEY = "namuwiki-game:specified-games";
+const ROUND_LOADING_SEEN_STORAGE_KEY = "namuwiki-game:round-loading-seen";
 const HISTORY_LIMIT = 50;
 const VISIBLE_HISTORY_LIMIT = 30;
 const SPECIFIED_GAMES_LIMIT = 5;
 const MULTIPLAYER_POLL_MS = 1000;
 const SHORTCUT_WARNING_MS = 1800;
+const ROUND_LOADING_COUNTDOWN_SECONDS = 3;
 
 window.addEventListener("keydown", blockBrowserFindShortcut, { capture: true });
 
@@ -41,6 +43,17 @@ const state = {
   goalPreviewRenderKey: "",
   completedElapsedSeconds: 0,
   isMoving: false,
+  roundLoading: {
+    active: false,
+    countdown: String(ROUND_LOADING_COUNTDOWN_SECONDS),
+    message: "실제 문서와 목표 정보를 준비하고 있습니다.",
+    countdownComplete: false,
+    documentReady: false,
+    manualStartRequired: false,
+    manualStartReady: false,
+    manualStartClicked: false,
+    manualStartResolve: null
+  },
   savedHistoryRoundId: "",
   tick: null,
   multiplayer: createMultiplayerState()
@@ -94,6 +107,12 @@ const els = {
   dailyRankPanel: document.querySelector("#dailyRankPanel"),
   dailyRankText: document.querySelector("#dailyRankText"),
   roundStatus: document.querySelector("#roundStatus"),
+  roundLoadingScreen: document.querySelector("#roundLoadingScreen"),
+  roundLoadingCountdown: document.querySelector("#roundLoadingCountdown"),
+  roundLoadingCountdownUnit: document.querySelector("#roundLoadingCountdownUnit"),
+  roundLoadingStartButton: document.querySelector("#roundLoadingStartButton"),
+  roundLoadingMessage: document.querySelector("#roundLoadingMessage"),
+  roundPlayAreas: document.querySelectorAll("[data-round-play-area]"),
   startTitle: document.querySelector("#startTitle"),
   goalTile: document.querySelector("#goalTile"),
   goalTitle: document.querySelector("#goalTitle"),
@@ -212,6 +231,7 @@ els.lockGoalButton.addEventListener("click", () => toggleMultiplayerRouteLock("g
 els.drawMultiplayerRoundButton.addEventListener("click", drawMultiplayerRound);
 els.multiplayerStartButton.addEventListener("click", startHostMultiplayerRound);
 els.dailyScoreForm.addEventListener("submit", submitDailyScoreFromDialog);
+els.roundLoadingStartButton.addEventListener("click", startFirstRoundAfterLoading);
 for (const button of els.nicknameButtons) {
   button.addEventListener("click", editNickname);
 }
@@ -284,28 +304,169 @@ function openGameModeDialog() {
 }
 
 async function startRound() {
+  await startRoundWithLoading(() => fetchJson(roundRequestUrl()));
+}
+
+async function startRoundWithLoading(loadRound, options = {}) {
+  if (state.roundLoading.active) return false;
+
   stopTimer();
   resetGoalPreviewState();
+  state.round = null;
+  state.goal = null;
+  state.article = null;
+  state.completed = false;
+  state.completedElapsedSeconds = 0;
+  state.savedHistoryRoundId = "";
   state.hasStarted = true;
   document.body.classList.remove("is-home");
   document.body.classList.add("is-game");
-  render();
+  beginRoundLoading();
   setLoading(true);
+  render();
+  const countdown = startRoundLoadingCountdown();
+  const roundData = loadRound().then((data) => {
+    state.roundLoading.documentReady = true;
+    if (state.roundLoading.countdownComplete) {
+      updateRoundLoadingReadyState();
+      if (!state.roundLoading.manualStartRequired) {
+        const resolveLoading = state.roundLoading.manualStartResolve;
+        state.roundLoading.manualStartResolve = null;
+        resolveLoading?.();
+      }
+    }
+    renderRoundLoading();
+    return data;
+  });
   try {
-    const data = await fetchJson(roundRequestUrl());
-    state.round = data.round;
-    state.goal = data.goal;
-    state.article = data.article;
-    state.completed = false;
-    state.completedElapsedSeconds = 0;
-    state.savedHistoryRoundId = "";
-    startTimer();
-    render();
-  } catch (error) {
-    renderError(error);
-  } finally {
+    const [data] = await Promise.all([roundData, countdown.promise]);
+    endRoundLoading();
     setLoading(false);
+    options.onRoundReady?.(data);
+    beginRound(data);
+    return true;
+  } catch (error) {
+    countdown.cancel();
+    endRoundLoading();
+    setLoading(false);
+    if (options.onError?.(error) !== true) {
+      renderError(error);
+    }
+    return false;
   }
+}
+
+function beginRoundLoading() {
+  const hasSeenRoundLoading = readLocalStorage(ROUND_LOADING_SEEN_STORAGE_KEY) === "1";
+  state.roundLoading.active = true;
+  state.roundLoading.countdown = String(ROUND_LOADING_COUNTDOWN_SECONDS);
+  state.roundLoading.message = "실제 문서와 목표 정보를 준비하고 있습니다.";
+  state.roundLoading.countdownComplete = false;
+  state.roundLoading.documentReady = false;
+  state.roundLoading.manualStartRequired = !hasSeenRoundLoading;
+  state.roundLoading.manualStartReady = false;
+  state.roundLoading.manualStartClicked = false;
+  state.roundLoading.manualStartResolve = null;
+  if (!hasSeenRoundLoading) {
+    writeLocalStorage(ROUND_LOADING_SEEN_STORAGE_KEY, "1");
+  }
+}
+
+function endRoundLoading() {
+  state.roundLoading.active = false;
+  state.roundLoading.countdown = String(ROUND_LOADING_COUNTDOWN_SECONDS);
+  state.roundLoading.message = "실제 문서와 목표 정보를 준비하고 있습니다.";
+  state.roundLoading.countdownComplete = false;
+  state.roundLoading.documentReady = false;
+  state.roundLoading.manualStartRequired = false;
+  state.roundLoading.manualStartReady = false;
+  state.roundLoading.manualStartClicked = false;
+  state.roundLoading.manualStartResolve = null;
+  renderRoundLoading();
+}
+
+function startRoundLoadingCountdown() {
+  let settled = false;
+  const timers = [];
+  const promise = new Promise((resolve) => {
+    for (let remaining = ROUND_LOADING_COUNTDOWN_SECONDS - 1; remaining >= 0; remaining -= 1) {
+      const elapsedSeconds = ROUND_LOADING_COUNTDOWN_SECONDS - remaining;
+      timers.push(window.setTimeout(() => {
+        if (settled) return;
+        state.roundLoading.countdown = remaining > 0 ? String(remaining) : "시작";
+        if (remaining === 0) {
+          state.roundLoading.countdownComplete = true;
+          if (state.roundLoading.documentReady) {
+            updateRoundLoadingReadyState();
+            if (!state.roundLoading.manualStartRequired) {
+              settled = true;
+              resolve();
+            } else {
+              state.roundLoading.manualStartResolve = () => {
+                if (settled) return;
+                settled = true;
+                resolve();
+              };
+            }
+          } else {
+            state.roundLoading.countdown = "0";
+            state.roundLoading.message = "조금만 더 기다려주세요! 문서를 읽고 있습니다.";
+            state.roundLoading.manualStartResolve = () => {
+              if (settled) return;
+              settled = true;
+              resolve();
+            };
+          }
+        }
+        renderRoundLoading();
+      }, elapsedSeconds * 1000));
+    }
+  });
+
+  return {
+    promise,
+    cancel() {
+      settled = true;
+      for (const timer of timers) {
+        window.clearTimeout(timer);
+      }
+    }
+  };
+}
+
+function updateRoundLoadingReadyState() {
+  if (!state.roundLoading.countdownComplete || !state.roundLoading.documentReady) return;
+
+  if (state.roundLoading.manualStartRequired) {
+    state.roundLoading.countdown = "0";
+    state.roundLoading.message = "조작법을 확인한 뒤 시작하세요.";
+    state.roundLoading.manualStartReady = true;
+    return;
+  }
+
+  state.roundLoading.countdown = "시작";
+  state.roundLoading.message = "문서 로딩을 마무리하고 있습니다.";
+}
+
+function startFirstRoundAfterLoading() {
+  const loading = state.roundLoading;
+  if (
+    !loading.active ||
+    !loading.manualStartRequired ||
+    !loading.manualStartReady ||
+    loading.manualStartClicked
+  ) {
+    return;
+  }
+
+  loading.manualStartClicked = true;
+  loading.manualStartReady = false;
+  loading.countdown = "시작";
+  loading.message = "문서 로딩을 마무리하고 있습니다.";
+  const resolveManualStart = loading.manualStartResolve;
+  loading.manualStartResolve = null;
+  renderRoundLoading();
+  resolveManualStart?.();
 }
 
 function startDailyChallenge() {
@@ -337,19 +498,40 @@ async function startSpecifiedRoundFromDialog(event) {
     return;
   }
 
-  setSpecifiedGameLoading(true);
-  setSpecifiedGameStatus("문서를 확인하는 중입니다.");
-  try {
-    const data = await fetchJson(specifiedRoundRequestUrl(startTitle, goalTitle));
-    rememberSpecifiedGame(startTitle, goalTitle);
-    setSpecifiedRoundQuery(startTitle, goalTitle);
-    els.gameModeDialog.close();
-    beginRound(data);
-  } catch (error) {
-    setSpecifiedGameStatus(error.message);
-  } finally {
-    setSpecifiedGameLoading(false);
-  }
+  els.gameModeDialog.close();
+  await startRoundWithLoading(
+    () => fetchJson(specifiedRoundRequestUrl(startTitle, goalTitle)),
+    {
+      onRoundReady() {
+        rememberSpecifiedGame(startTitle, goalTitle);
+        setSpecifiedRoundQuery(startTitle, goalTitle);
+      },
+      onError(error) {
+        restoreSpecifiedRoundDialog(startTitle, goalTitle, error.message);
+        return true;
+      }
+    }
+  );
+}
+
+function restoreSpecifiedRoundDialog(startTitle, goalTitle, message) {
+  state.round = null;
+  state.goal = null;
+  state.article = null;
+  state.completed = false;
+  state.completedElapsedSeconds = 0;
+  state.savedHistoryRoundId = "";
+  state.hasStarted = false;
+  state.homeView = "home";
+  document.body.classList.remove("is-game", "is-loading");
+  document.body.classList.add("is-home");
+  render();
+  startHomeClock();
+  els.specifiedStartInput.value = startTitle;
+  els.specifiedGoalInput.value = goalTitle;
+  setSpecifiedGameStatus(message || "문서를 확인하지 못했습니다.");
+  els.gameModeDialog.showModal();
+  els.specifiedStartInput.focus();
 }
 
 function handleRoundAction() {
@@ -376,6 +558,7 @@ function returnHome() {
   state.completed = false;
   state.completedElapsedSeconds = 0;
   state.isMoving = false;
+  endRoundLoading();
   resetGoalPreviewState();
   state.savedHistoryRoundId = "";
   state.hasStarted = false;
@@ -403,6 +586,7 @@ function returnToMultiplayerLobby() {
   state.completed = false;
   state.completedElapsedSeconds = 0;
   state.isMoving = false;
+  endRoundLoading();
   resetGoalPreviewState();
   state.savedHistoryRoundId = "";
   state.hasStarted = false;
@@ -477,6 +661,7 @@ function beginRound(data) {
   state.completed = false;
   state.completedElapsedSeconds = 0;
   state.savedHistoryRoundId = "";
+  endRoundLoading();
   startTimer();
   render();
 }
@@ -484,13 +669,6 @@ function beginRound(data) {
 function setSpecifiedGameStatus(message) {
   els.specifiedGameStatus.textContent = message || "";
   els.specifiedGameStatus.hidden = !message;
-}
-
-function setSpecifiedGameLoading(isLoading) {
-  els.specifiedGameButton.disabled = isLoading;
-  els.specifiedStartInput.disabled = isLoading;
-  els.specifiedGoalInput.disabled = isLoading;
-  els.specifiedGameButton.textContent = isLoading ? "확인 중" : "지정된 게임 시작";
 }
 
 function readSpecifiedGames() {
@@ -639,6 +817,7 @@ function render() {
 
   els.homeScreen.hidden = state.hasStarted;
   els.gameBoard.hidden = !state.hasStarted;
+  renderRoundLoading();
   els.homeBoard.hidden = state.homeView !== "home";
   els.historyScreen.hidden = state.homeView !== "history";
   for (const note of els.storageNotes) {
@@ -673,6 +852,30 @@ function render() {
   renderStatus();
   renderMultiplayerLobby();
   renderMultiplayerDock();
+}
+
+function renderRoundLoading() {
+  const isRoundLoading = state.roundLoading.active;
+  const showManualStartButton =
+    isRoundLoading &&
+    state.roundLoading.manualStartRequired &&
+    state.roundLoading.manualStartReady;
+  els.roundLoadingScreen.hidden = !isRoundLoading;
+  els.roundLoadingCountdown.textContent = state.roundLoading.countdown;
+  els.roundLoadingCountdown.hidden = showManualStartButton;
+  els.roundLoadingCountdownUnit.hidden =
+    showManualStartButton || !/^\d+$/.test(state.roundLoading.countdown);
+  els.roundLoadingStartButton.hidden = !showManualStartButton;
+  els.roundLoadingStartButton.disabled = state.roundLoading.manualStartClicked;
+  els.roundLoadingStartButton.setAttribute("aria-hidden", showManualStartButton ? "false" : "true");
+  els.roundLoadingStartButton.closest(".round-loading-countdown")?.classList.toggle(
+    "is-start-button",
+    showManualStartButton
+  );
+  els.roundLoadingMessage.textContent = state.roundLoading.message;
+  for (const area of els.roundPlayAreas) {
+    area.hidden = isRoundLoading;
+  }
 }
 
 function renderGoalPreview() {
@@ -1341,7 +1544,9 @@ async function startMultiplayerRound(message) {
   setSpecifiedRoundQuery(startTitle, goalTitle);
   els.multiplayerDialog.close();
   await startRound();
-  broadcastMultiplayerClicks();
+  if (state.round) {
+    broadcastMultiplayerClicks();
+  }
 }
 
 function broadcastMultiplayerClicks() {
@@ -2556,6 +2761,10 @@ function setLoading(isLoading) {
 }
 
 function renderStatus(isLoading = false) {
+  if (state.roundLoading.active) {
+    els.roundStatus.textContent = "시작 준비";
+    return;
+  }
   if (isLoading && state.isMoving) {
     els.roundStatus.textContent = "이동 중";
     return;
