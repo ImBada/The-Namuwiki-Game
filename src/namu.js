@@ -40,6 +40,10 @@ export function makeArticleUrl(title) {
   return `${NAMU_BASE_URL}/w/${encodeTitle(title)}`;
 }
 
+export function makeBacklinkUrl(title) {
+  return `${NAMU_BASE_URL}/backlink/${encodeTitle(title)}`;
+}
+
 export function extractMetaContent(html, propertyName) {
   for (const tag of String(html || "").matchAll(/<meta\b[^>]*>/gi)) {
     const attrs = parseHtmlAttributes(tag[0]);

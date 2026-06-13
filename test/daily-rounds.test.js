@@ -45,6 +45,14 @@ test("persists daily challenge rounds after the first random generation", async 
       });
     }
 
+    if (href.startsWith("https://namu.wiki/backlink/")) {
+      const encodedTitle = href.split("/backlink/")[1] || "";
+      const title = decodeURIComponent(encodedTitle);
+      return new Response(articleHtml(`${title} 역링크`, 1), {
+        headers: { "Content-Type": "text/html" }
+      });
+    }
+
     const encodedTitle = href.split("/w/")[1] || "";
     const title = decodeURIComponent(encodedTitle);
     articleCallCount += 1;

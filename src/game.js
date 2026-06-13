@@ -6,15 +6,17 @@ import { promisify } from "node:util";
 import {
   encodeTitle,
   extractArticle,
+  extractInternalLinks,
   isPlayableArticleTitle,
   makeArticleUrl,
+  makeBacklinkUrl,
   normalizeTitle
 } from "./namu.js";
 import { httpError } from "./http.js";
 
 const DOCUMENT_CACHE_TTL_DAYS = 7;
 const DOCUMENT_TTL_MS = 1000 * 60 * 60 * 24 * DOCUMENT_CACHE_TTL_DAYS;
-const DOCUMENT_CACHE_VERSION = 4;
+const DOCUMENT_CACHE_VERSION = 7;
 const DOCUMENT_CACHE_MAX_ENTRIES = Number.parseInt(
   process.env.DOCUMENT_CACHE_MAX_ENTRIES || "1000",
   10
@@ -41,6 +43,12 @@ const NAMU_HEADERS = {
   "Sec-Fetch-Dest": "document",
   "Sec-Fetch-Mode": "navigate",
   "Sec-Fetch-Site": "same-origin"
+};
+const NAMU_BACKLINK_HEADERS = {
+  "User-Agent": USER_AGENT,
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+  "Referer": "https://namu.wiki/"
 };
 const NAMU_FETCH_TIMEOUT_MS = Number.parseInt(
   process.env.NAMU_FETCH_TIMEOUT_MS || "10000",
@@ -100,9 +108,12 @@ export async function createRound(options = {}) {
         exceptTitles: [startArticle.title],
         minLinks: 4
       });
+  if (requestedGoalTitle) {
+    await assertGoalArticleHasBacklinks(goalArticle);
+  }
 
   if (normalizeTitle(goalArticle.title) === normalizeTitle(startArticle.title)) {
-    goalArticle = await getArticle(pickCuratedTitle(startArticle.title, targetFallbackTitles));
+    throw httpError(502, "목표 문서 후보를 확인하지 못했습니다. 다시 시작해 주세요.");
   }
 
   const round = {
@@ -311,7 +322,18 @@ async function pickArticleCandidate({ role, exceptTitles, minLinks }) {
       const article = await pickRandomArticle();
       if (exceptTitles.some((exceptTitle) => sameTitle(article.title, exceptTitle))) continue;
       const quality = scoreArticleQuality(article, { minLinks, role });
-      if (quality.accepted) return article;
+      if (quality.accepted) {
+        if (role !== "goal") return article;
+        const backlinkStatus = await articleHasBacklinks(article);
+        if (backlinkStatus === true) return article;
+        if (backlinkStatus === false) {
+          candidates.push({
+            article,
+            quality: scoreArticleQuality(withBacklinkStatus(article, false), { minLinks, role })
+          });
+        }
+        continue;
+      }
       candidates.push({ article, quality });
     } catch {
       // Try another candidate, then fall back to curated titles.
@@ -324,6 +346,10 @@ async function pickArticleCandidate({ role, exceptTitles, minLinks }) {
 
   if (bestCandidate?.quality.accepted) return bestCandidate.article;
 
+  if (role === "goal") {
+    throw httpError(502, "목표 문서 후보를 확인하지 못했습니다. 다시 시작해 주세요.");
+  }
+
   for (const fallbackTitle of shuffled(acceptedFallbacks)) {
     if (exceptTitles.some((exceptTitle) => sameTitle(fallbackTitle, exceptTitle))) continue;
     const article = await getArticle(fallbackTitle);
@@ -331,7 +357,9 @@ async function pickArticleCandidate({ role, exceptTitles, minLinks }) {
       minLinks: Math.min(minLinks, 6),
       role
     });
-    if (quality.score >= 50) return article;
+    if (quality.score < 50) continue;
+    if (role === "goal" && (await articleHasBacklinks(article)) !== true) continue;
+    return article;
   }
 
   return getArticle(pickCuratedTitle(exceptTitles[0], acceptedFallbacks));
@@ -389,6 +417,93 @@ async function getArticle(title) {
   await cacheArticle(article, [normalizeTitle(article.title), key], now);
 
   return article;
+}
+
+async function assertGoalArticleHasBacklinks(article) {
+  const hasBacklinks = await articleHasBacklinks(article);
+  if (hasBacklinks === true) return;
+  if (hasBacklinks === null) {
+    throw httpError(
+      502,
+      `목표 문서 "${article.title}"의 역링크를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.`
+    );
+  }
+  throw httpError(
+    400,
+    `목표 문서 "${article.title}"은(는) 역링크가 없어 목표로 사용할 수 없습니다.`
+  );
+}
+
+async function articleHasBacklinks(article) {
+  if (typeof article?.hasBacklinks === "boolean") return article.hasBacklinks;
+
+  const backlinkLinks = await fetchBacklinkLinks(article?.title);
+  if (!backlinkLinks) return null;
+
+  const backlinkCount = backlinkLinks.filter((link) =>
+    isBacklinkSourceTitle(link.title, article.title)
+  ).length;
+  Object.assign(article, {
+    hasBacklinks: backlinkCount > 0,
+    backlinkCount
+  });
+  await cacheArticle(article, [article.title]);
+  return backlinkCount > 0;
+}
+
+async function fetchBacklinkLinks(title) {
+  const key = normalizeTitle(title);
+  if (!key) return [];
+
+  const attempts = [
+    { url: makeBacklinkUrl(key) },
+    { url: makeBacklinkUrl(key), headers: NAMU_BACKLINK_HEADERS }
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const response = await fetch(attempt.url, {
+        headers: attempt.headers,
+        signal: AbortSignal.timeout(NAMU_FETCH_TIMEOUT_MS)
+      });
+      if (!response.ok) continue;
+
+      const rawText = Buffer.from(await response.arrayBuffer()).toString("utf8");
+      const links = extractInternalLinks(rawText, key);
+      if (links.length > 0 || looksLikeEmptyBacklinkPage(rawText)) return links;
+    } catch {
+      // Try the next request shape, then treat it as unverified.
+    }
+  }
+
+  return null;
+}
+
+function looksLikeEmptyBacklinkPage(html) {
+  return /해당\s*문서의\s*역링크가\s*존재하지\s*않습니다/.test(String(html || ""));
+}
+
+function isBacklinkSourceTitle(sourceTitle, targetTitle) {
+  const title = normalizeTitle(sourceTitle);
+  if (!title || sameTitle(title, targetTitle)) return false;
+  if (!isPlayableArticleTitle(title)) return false;
+  return ![
+    "최근 변경",
+    "최근 토론",
+    "특수 기능",
+    "나무위키",
+    "문의 게시판",
+    "보존문서",
+    "사용자 문서"
+  ].some((chromeTitle) => sameTitle(title, chromeTitle));
+}
+
+function withBacklinkStatus(article, hasBacklinks) {
+  return {
+    ...article,
+    hasBacklinks,
+    backlinkCount: hasBacklinks ? Math.max(1, article?.backlinkCount || 0) : 0
+  };
 }
 
 async function getCachedArticle(key, now = Date.now()) {
@@ -738,6 +853,12 @@ export function scoreArticleQuality(article, options = {}) {
     reasons.push("goal-index-like");
   }
 
+  const hasCheckedBacklinks = typeof article?.hasBacklinks === "boolean";
+  if (role === "goal" && hasCheckedBacklinks && !article.hasBacklinks) {
+    score -= 70;
+    reasons.push("no-backlinks");
+  }
+
   if (linkCount < minLinks) {
     score -= Math.min(45, (minLinks - linkCount) * 7);
     reasons.push("few-links");
@@ -765,7 +886,8 @@ export function scoreArticleQuality(article, options = {}) {
     accepted:
       score >= 70 &&
       linkCount >= minLinks &&
-      !(role === "goal" && title.includes("/")),
+      !(role === "goal" && title.includes("/")) &&
+      !(role === "goal" && hasCheckedBacklinks && !article.hasBacklinks),
     score: Math.max(0, Math.min(100, score)),
     linkCount,
     reasons

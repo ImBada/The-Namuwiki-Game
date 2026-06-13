@@ -37,7 +37,14 @@ test("rewinds a round to the selected path item", async () => {
   ]);
 
   globalThis.fetch = async (url) => {
-    const encodedTitle = String(url).split("/w/")[1] || "";
+    const href = String(url);
+    if (href.startsWith("https://namu.wiki/backlink/")) {
+      return new Response(articleHtml("목표 역링크", ["중간"]), {
+        headers: { "Content-Type": "text/html" }
+      });
+    }
+
+    const encodedTitle = href.split("/w/")[1] || "";
     const title = decodeURIComponent(encodedTitle);
     return new Response(articles.get(title) || articleHtml(title), {
       headers: { "Content-Type": "text/html" }

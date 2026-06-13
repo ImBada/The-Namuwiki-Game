@@ -87,6 +87,20 @@ test("rejects slash subpages as goals even when the score is high", () => {
   assert.ok(quality.reasons.includes("goal-subpage"));
 });
 
+test("rejects checked goal articles without backlinks", () => {
+  const quality = scoreArticleQuality(
+    {
+      ...article("막다른 목표", ["하나", "둘", "셋", "넷", "다섯", "여섯"]),
+      hasBacklinks: false,
+      backlinkCount: 0
+    },
+    { minLinks: 4, role: "goal" }
+  );
+
+  assert.equal(quality.accepted, false);
+  assert.ok(quality.reasons.includes("no-backlinks"));
+});
+
 test("penalizes sensitive random candidates", () => {
   const quality = scoreArticleQuality(
     article("예시 인물", [
