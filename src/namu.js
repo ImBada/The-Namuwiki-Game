@@ -348,7 +348,7 @@ function trimTrailingPageChrome(html) {
 
 function findTrailingPageChromeStart(html) {
   const markerPattern =
-    /이\s*저작물은|기여하신\s*문서의\s*저작권|Operado\s+por\s+umanle|Impulsado\s+por\s+the\s+seed|This\s+site\s+is\s+protected\s+by\s+(?:reCAPTCHA|hCaptcha)/i;
+    /이\s*저작물은[\s\S]{0,500}?CC\s*BY-NC-SA|기여하신\s*문서의\s*저작권|Operado\s+por\s+umanle|Impulsado\s+por\s+the\s+seed|This\s+site\s+is\s+protected\s+by\s+(?:reCAPTCHA|hCaptcha)/i;
   const markerMatch = markerPattern.exec(html);
   if (!markerMatch) return -1;
 
@@ -363,7 +363,7 @@ function findTrailingPageChromeStart(html) {
 }
 
 function looksLikeFooterChrome(html) {
-  return /이\s*저작물은|기여하신\s*문서의\s*저작권|namu\.wiki|Operado\s+por\s+umanle|Impulsado\s+por\s+the\s+seed|This\s+site\s+is\s+protected\s+by\s+(?:reCAPTCHA|hCaptcha)/i.test(
+  return /이\s*저작물은[\s\S]{0,500}?CC\s*BY-NC-SA|기여하신\s*문서의\s*저작권|namu\.wiki|Operado\s+por\s+umanle|Impulsado\s+por\s+the\s+seed|This\s+site\s+is\s+protected\s+by\s+(?:reCAPTCHA|hCaptcha)/i.test(
     html
   );
 }

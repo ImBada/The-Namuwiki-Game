@@ -290,3 +290,22 @@ test("removes trailing NamuWiki license and footer chrome from extracted article
   assert.match(articleHtml, /data-game-title="BEMANI"/);
   assert.doesNotMatch(articleHtml, /CC BY-NC-SA|Operado por umanle|reCAPTCHA|hCaptcha|맨 위로|맨 아래로/);
 });
+
+test("does not trim ordinary article text that only mentions works", () => {
+  const html = `
+    <main>
+      <div class="generated-article-wrapper">
+        <div class="generated-content-block">
+          <div class="wiki-paragraph">이 저작물은 게임 안에서 중요한 단서로 등장한다.</div>
+          <h2 class="wiki-heading" id="s-1">1. 개요</h2>
+          <div class="wiki-paragraph"><a href="/w/%EA%B2%8C%EC%9E%84">게임</a> 관련 본문은 계속 보여야 한다.</div>
+        </div>
+      </div>
+    </main>
+  `;
+
+  const articleHtml = extractPlayableArticleHtml(html, "예시");
+  assert.match(articleHtml, /이 저작물은 게임 안에서 중요한 단서/);
+  assert.match(articleHtml, /관련 본문은 계속 보여야 한다/);
+  assert.match(articleHtml, /data-game-title="게임"/);
+});
