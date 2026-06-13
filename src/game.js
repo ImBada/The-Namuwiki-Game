@@ -6,11 +6,13 @@ import { promisify } from "node:util";
 import {
   encodeTitle,
   extractArticle,
+  extractBalancedElement,
   extractInternalLinks,
   isPlayableArticleTitle,
   makeArticleUrl,
   makeBacklinkUrl,
-  normalizeTitle
+  normalizeTitle,
+  stripTags
 } from "./namu.js";
 import { httpError } from "./http.js";
 
@@ -809,14 +811,175 @@ function signRoundPayload(payload) {
 }
 
 function compactArticle(article) {
+  const preview = articlePreview(article);
   return {
     title: article.title,
     description: article.description,
+    previewOverview: preview.overview,
+    previewBody: preview.body,
+    previewCategoriesHtml: preview.categoriesHtml,
+    previewOverviewHtml: preview.overviewHtml,
+    previewBodyHtml: preview.bodyHtml,
+    previewText: preview.body,
     imageUrl: article.imageUrl,
     canonicalUrl: article.canonicalUrl,
     linkCount: article.links.length,
     quality: scoreArticleQuality(article)
   };
+}
+
+function articlePreview(article) {
+  const description = normalizeTitle(article?.description);
+  const title = normalizeTitle(article?.title);
+  const sections = extractArticlePreviewSections(article?.html);
+  const categoriesHtml = previewCategoryHtml(article?.html);
+  const overviewSection =
+    sections.find((section) => section.title === "개요") ||
+    sections.find((section) => /개요|소개|설명/.test(section.title)) ||
+    sections.find(isPreviewBodySection);
+  const bodySection =
+    sections.find((section) => section.start > (overviewSection?.start ?? -1) && isPreviewBodySection(section)) ||
+    sections.find((section) => section !== overviewSection && isPreviewBodySection(section));
+  const overviewHtml = previewSectionHtml(overviewSection, { maxBlocks: 2 });
+  const bodyHtml = previewSectionHtml(bodySection, { maxBlocks: 3 });
+  const overview = cleanDescriptionPreview(description, title);
+
+  return {
+    overview,
+    body: "",
+    categoriesHtml,
+    overviewHtml,
+    bodyHtml
+  };
+}
+
+function previewCategoryHtml(html) {
+  const articleHtml = String(html || "");
+  const categoryPattern = />\s*분류\s*</g;
+  let match;
+
+  while ((match = categoryPattern.exec(articleHtml))) {
+    const start = nearestElementStart(articleHtml, match.index);
+    if (start < 0) continue;
+
+    const block = extractBalancedElement(articleHtml, start);
+    if (/>\s*분류\s*</.test(block) && /<(?:ul|ol)\b[\s\S]*?<li\b/i.test(block)) {
+      return categoryListHtml(block);
+    }
+  }
+
+  return "";
+}
+
+function categoryListHtml(html) {
+  const items = [];
+  const anchorPattern = /<a\b[^>]*data-game-title=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi;
+  let anchorMatch;
+
+  while ((anchorMatch = anchorPattern.exec(String(html || "")))) {
+    const title = normalizeTitle(stripTags(anchorMatch[3])) || normalizeTitle(anchorMatch[2]);
+    const gameTitle = normalizeTitle(anchorMatch[2]) || title;
+    if (!title || title === "분류") continue;
+    items.push({ title, gameTitle });
+  }
+
+  if (items.length === 0) {
+    const itemPattern = /<li\b[^>]*>([\s\S]*?)<\/li>/gi;
+    let itemMatch;
+    while ((itemMatch = itemPattern.exec(String(html || "")))) {
+      const title = normalizeTitle(stripTags(itemMatch[1])).replace(/^분류\s*/, "");
+      if (title) items.push({ title, gameTitle: title });
+    }
+  }
+
+  if (items.length === 0) return "";
+
+  const itemHtml = items.slice(0, 8).map((item) =>
+    `<li><a href="#" data-game-title="${escapeHtml(item.gameTitle)}" class="game-wiki-link">${escapeHtml(item.title)}</a></li>`
+  ).join("");
+  return `<ul>${itemHtml}</ul>`;
+}
+
+function nearestElementStart(html, index) {
+  const prefix = String(html || "").slice(0, index);
+  const starts = [...prefix.matchAll(/<(?:div|section|nav|ul|ol)\b[^>]*>/gi)];
+  return starts.at(-1)?.index ?? -1;
+}
+
+function previewSectionHtml(section, options = {}) {
+  if (!section) return "";
+
+  return extractPreviewHtmlBlocks(section.html)
+    .slice(0, options.maxBlocks ?? 2)
+    .join("");
+}
+
+function extractPreviewHtmlBlocks(html) {
+  const blocks = [];
+  const articleHtml = String(html || "");
+  const blockPattern = /<(?:p|ul|ol)\b[^>]*>|<div\b[^>]*class=(["'])[^"']*\bwiki-paragraph\b[^"']*\1[^>]*>/gi;
+  let match;
+
+  while ((match = blockPattern.exec(articleHtml))) {
+    const block = extractBalancedElement(articleHtml, match.index);
+    const text = normalizeTitle(stripTags(block));
+    blockPattern.lastIndex = match.index + block.length;
+    if (!isUsefulPreviewBlock(text)) continue;
+    blocks.push(block);
+  }
+
+  return blocks;
+}
+
+function extractArticlePreviewSections(html) {
+  const articleHtml = String(html || "");
+  const headingPattern = /<h[1-6]\b[^>]*>[\s\S]*?<\/h[1-6]>/gi;
+  const headings = [...articleHtml.matchAll(headingPattern)].map((match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+    title: previewHeadingTitle(match[0])
+  })).filter((heading) => heading.title);
+
+  if (headings.length === 0) {
+    return [{ title: "", html: articleHtml }];
+  }
+
+  return headings.map((heading, index) => ({
+    start: heading.start,
+    title: heading.title,
+    html: articleHtml.slice(heading.end, headings[index + 1]?.start ?? articleHtml.length)
+  }));
+}
+
+function previewHeadingTitle(html) {
+  return normalizeTitle(stripTags(html))
+    .replace(/\[\s*편집\s*\]/g, "")
+    .replace(/^\d+(?:\.\d+)*\.\s*/, "")
+    .trim();
+}
+
+function isPreviewBodySection(section) {
+  return !/^(개요|관련 문서|둘러보기|각주|외부 링크|분류|참고 자료|여담)$/.test(section?.title || "");
+}
+
+function isUsefulPreviewBlock(text) {
+  const normalized = normalizeTitle(text);
+  if (normalized.length < 2) return false;
+  if (/^(분류|목차|주의\.|문서가 존재하는|관련 문서|둘러보기)$/.test(normalized)) return false;
+  if (/펼치기\s*·\s*접기/.test(normalized)) return false;
+  return true;
+}
+
+function cleanDescriptionPreview(description, title) {
+  const cleaned = normalizeTitle(description)
+    .replace(title, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  const sentences = cleaned
+    .split(/(?<=[.!?。])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  return sentences[0] || cleaned;
 }
 
 export function scoreArticleQuality(article, options = {}) {

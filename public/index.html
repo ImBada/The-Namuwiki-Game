@@ -123,9 +123,34 @@
             <span>시작</span>
             <strong id="startTitle">-</strong>
           </article>
-          <article class="round-tile goal">
+          <article
+            id="goalTile"
+            class="round-tile goal goal-preview-anchor"
+            tabindex="0"
+            aria-controls="goalPreview"
+            aria-expanded="false"
+          >
             <span>목표</span>
             <strong id="goalTitle">-</strong>
+            <div id="goalPreview" class="goal-preview" role="region" aria-label="목표 문서 미리보기" aria-hidden="true">
+              <div id="goalPreviewCategoriesSection" class="goal-preview-section goal-preview-categories-section" hidden>
+                <span class="goal-preview-label">분류</span>
+                <div id="goalPreviewCategories" class="goal-preview-categories"></div>
+              </div>
+              <div class="goal-preview-section">
+                <span class="goal-preview-label">1. 개요</span>
+                <div id="goalPreviewDescription" class="goal-preview-content">라운드를 시작하면 목표 문서 미리보기가 표시됩니다.</div>
+              </div>
+              <div id="goalPreviewExcerptSection" class="goal-preview-section goal-preview-excerpt-section">
+                <span class="goal-preview-label">2. 본문</span>
+                <div id="goalPreviewExcerpt" class="goal-preview-content goal-preview-excerpt"></div>
+              </div>
+              <div class="goal-preview-footer">
+                <span class="goal-preview-label">3. 정보</span>
+                <span id="goalPreviewMeta">문서 정보 대기 중</span>
+                <a id="goalPreviewLink" href="https://namu.wiki/" rel="noreferrer" target="_blank">원문</a>
+              </div>
+            </div>
           </article>
           <article class="stat-tile">
             <span>시간</span>

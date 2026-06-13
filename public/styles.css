@@ -869,6 +869,8 @@ a:focus-visible {
 }
 
 .round-strip {
+  position: relative;
+  z-index: 7;
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) 130px 110px 120px;
   gap: 10px;
@@ -911,8 +913,175 @@ a:focus-visible {
 }
 
 .round-tile.goal {
+  position: relative;
+  overflow: visible;
+  cursor: help;
   border-left-color: var(--rose);
   box-shadow: 0 0 0 1px rgba(229, 70, 109, 0.12), 0 0 24px rgba(229, 70, 109, 0.16);
+}
+
+.round-tile.goal:focus {
+  outline: 2px solid rgba(255, 143, 170, 0.78);
+  outline-offset: 3px;
+}
+
+.goal-preview {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 8px;
+  z-index: 30;
+  display: grid;
+  width: min(430px, calc(100vw - 32px));
+  gap: 12px;
+  border: 1px solid rgba(255, 143, 170, 0.34);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(255, 239, 244, 0.92), rgba(255, 255, 255, 0.98) 56%),
+    #fffafb;
+  color: #2e1d22;
+  padding: 16px;
+  box-shadow: 0 22px 46px rgba(4, 12, 10, 0.34), 0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  visibility: hidden;
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
+}
+
+.goal-preview-anchor.is-preview-open .goal-preview {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+.goal-preview-section {
+  display: grid;
+  gap: 6px;
+}
+
+.goal-preview .goal-preview-label {
+  display: block;
+  color: #6f3a47;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.goal-preview-categories {
+  max-height: 54px;
+  overflow: hidden;
+  color: #4a2832;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+  mask-image: linear-gradient(180deg, #000 78%, transparent);
+}
+
+.goal-preview-categories ul,
+.goal-preview-categories ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal-preview-categories li {
+  margin: 0;
+}
+
+.goal-preview-categories .game-wiki-link,
+.goal-preview-categories a {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  border: 1px solid rgba(122, 31, 50, 0.22);
+  border-radius: 999px;
+  background: rgba(122, 31, 50, 0.07);
+  color: #5b2430;
+  padding: 2px 8px;
+  text-decoration: none;
+}
+
+.goal-preview-content {
+  max-height: 96px;
+  overflow: hidden;
+  color: #37242a;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.55;
+  mask-image: linear-gradient(180deg, #000 76%, transparent);
+}
+
+.goal-preview .goal-preview-excerpt {
+  max-height: 168px;
+  color: #5a3a42;
+  font-size: 14px;
+  font-weight: 560;
+  line-height: 1.5;
+}
+
+.goal-preview-content p,
+.goal-preview-content .wiki-paragraph {
+  margin: 0 0 8px;
+}
+
+.goal-preview-content ul,
+.goal-preview-content ol {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.goal-preview-content li {
+  margin: 0;
+}
+
+.goal-preview-content .game-wiki-link {
+  color: #126ed3;
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.goal-preview-content .wiki-edit-section,
+.goal-preview-content .wiki-macro-toc,
+.goal-preview-content .footnote-list {
+  display: none;
+}
+
+.goal-preview-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid rgba(229, 70, 109, 0.2);
+  padding-top: 12px;
+}
+
+.goal-preview-footer #goalPreviewMeta {
+  color: #4f3038;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.goal-preview-footer a {
+  margin-left: auto;
+  min-height: 30px;
+  border: 1px solid rgba(229, 70, 109, 0.28);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #7a1f32;
+  font-size: 12px;
+  font-weight: 850;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.goal-preview-footer a:hover {
+  background: rgba(229, 70, 109, 0.08);
 }
 
 .opponent-click-tile {
@@ -3003,6 +3172,37 @@ body.is-loading .game-wiki-link {
   .round-tile,
   .stat-tile {
     min-height: 68px;
+  }
+
+  .round-tile.goal {
+    cursor: pointer;
+  }
+
+  .goal-preview {
+    position: static;
+    display: none;
+    width: auto;
+    margin-top: 12px;
+    padding: 12px;
+    box-shadow: 0 12px 28px rgba(4, 12, 10, 0.2);
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+    visibility: visible;
+  }
+
+  .goal-preview-anchor.is-preview-open .goal-preview {
+    display: grid;
+  }
+
+  .goal-preview-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .goal-preview-footer a {
+    margin-left: 0;
   }
 
   .wiki-article {

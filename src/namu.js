@@ -372,7 +372,7 @@ function looksLikeFooterChrome(html) {
   );
 }
 
-function extractBalancedElement(html, startIndex) {
+export function extractBalancedElement(html, startIndex) {
   const openTag = html.slice(startIndex).match(/^<([a-z0-9-]+)\b[^>]*>/i);
   if (!openTag) return "";
 
@@ -426,7 +426,7 @@ function normalizeImageUrl(url) {
   return url;
 }
 
-function stripTags(value) {
+export function stripTags(value) {
   return decodeHtmlEntities(
     String(value || "")
       .replace(/<script[\s\S]*?<\/script>/gi, "")

@@ -37,6 +37,8 @@ const state = {
   dailyScoresDateKey: "",
   hasStarted: false,
   homeView: "home",
+  goalPreviewOpen: false,
+  goalPreviewRenderKey: "",
   completedElapsedSeconds: 0,
   isMoving: false,
   savedHistoryRoundId: "",
@@ -93,7 +95,16 @@ const els = {
   dailyRankText: document.querySelector("#dailyRankText"),
   roundStatus: document.querySelector("#roundStatus"),
   startTitle: document.querySelector("#startTitle"),
+  goalTile: document.querySelector("#goalTile"),
   goalTitle: document.querySelector("#goalTitle"),
+  goalPreview: document.querySelector("#goalPreview"),
+  goalPreviewCategoriesSection: document.querySelector("#goalPreviewCategoriesSection"),
+  goalPreviewCategories: document.querySelector("#goalPreviewCategories"),
+  goalPreviewDescription: document.querySelector("#goalPreviewDescription"),
+  goalPreviewExcerptSection: document.querySelector("#goalPreviewExcerptSection"),
+  goalPreviewExcerpt: document.querySelector("#goalPreviewExcerpt"),
+  goalPreviewMeta: document.querySelector("#goalPreviewMeta"),
+  goalPreviewLink: document.querySelector("#goalPreviewLink"),
   timer: document.querySelector("#timer"),
   clickCount: document.querySelector("#clickCount"),
   opponentClickTile: document.querySelector("#opponentClickTile"),
@@ -211,6 +222,14 @@ els.wikiArticle.addEventListener("click", (event) => {
   event.preventDefault();
   moveTo(link.dataset.gameTitle);
 });
+els.goalTile.addEventListener("pointerenter", openGoalPreviewFromPointer);
+els.goalTile.addEventListener("pointerleave", closeGoalPreviewFromPointer);
+els.goalTile.addEventListener("focusin", openGoalPreviewFromFocus);
+els.goalTile.addEventListener("focusout", closeGoalPreviewFromFocus);
+els.goalTile.addEventListener("click", toggleGoalPreviewFromPointer);
+els.goalTile.addEventListener("keydown", toggleGoalPreviewFromKeyboard);
+els.goalPreview.addEventListener("click", preventGoalPreviewArticleLink);
+document.addEventListener("click", closeGoalPreviewFromOutside);
 
 render();
 renderNickname();
@@ -250,6 +269,7 @@ function createMultiplayerState() {
 
 function startFreshRound() {
   clearRoundQueryParams();
+  resetGoalPreviewState();
   startRound();
 }
 
@@ -265,6 +285,7 @@ function openGameModeDialog() {
 
 async function startRound() {
   stopTimer();
+  resetGoalPreviewState();
   state.hasStarted = true;
   document.body.classList.remove("is-home");
   document.body.classList.add("is-game");
@@ -355,6 +376,7 @@ function returnHome() {
   state.completed = false;
   state.completedElapsedSeconds = 0;
   state.isMoving = false;
+  resetGoalPreviewState();
   state.savedHistoryRoundId = "";
   state.hasStarted = false;
   state.homeView = "home";
@@ -381,6 +403,7 @@ function returnToMultiplayerLobby() {
   state.completed = false;
   state.completedElapsedSeconds = 0;
   state.isMoving = false;
+  resetGoalPreviewState();
   state.savedHistoryRoundId = "";
   state.hasStarted = false;
   state.homeView = "home";
@@ -444,6 +467,7 @@ function specifiedRoundRequestUrl(startTitle, goalTitle) {
 
 function beginRound(data) {
   stopTimer();
+  resetGoalPreviewState();
   state.hasStarted = true;
   document.body.classList.remove("is-home");
   document.body.classList.add("is-game");
@@ -624,6 +648,7 @@ function render() {
   els.goalTitle.textContent = round?.goalTitle || "-";
   els.stickyGoalTitle.textContent = round?.goalTitle || "-";
   els.pathGoalTitle.textContent = round?.goalTitle || "-";
+  renderGoalPreview();
   els.clickCount.textContent = String(round?.clickCount || 0);
   els.opponentClickCount.textContent = String(state.multiplayer.opponentClicks || 0);
   els.opponentClickTile.hidden = !state.multiplayer.inGame;
@@ -648,6 +673,135 @@ function render() {
   renderStatus();
   renderMultiplayerLobby();
   renderMultiplayerDock();
+}
+
+function renderGoalPreview() {
+  const goal = state.goal;
+  const description =
+    goal?.previewOverview ||
+    goal?.description ||
+    (goal ? "이 문서는 별도 설명이 제공되지 않았습니다." : "라운드를 시작하면 목표 문서 미리보기가 표시됩니다.");
+  const previewText = goal?.previewBody || goal?.previewText || "";
+  const categoriesHtml = goal?.previewCategoriesHtml || "";
+  const overviewHtml = goal?.previewOverviewHtml || "";
+  const bodyHtml = goal?.previewBodyHtml || "";
+  const linkCount = Number.isFinite(goal?.linkCount) ? goal.linkCount : 0;
+  const sourceUrl = goal?.canonicalUrl || "https://namu.wiki/";
+  const hasGoal = Boolean(goal && state.hasStarted);
+  const renderKey = [
+    hasGoal ? "1" : "0",
+    goal?.title || "",
+    categoriesHtml,
+    overviewHtml,
+    description,
+    bodyHtml,
+    previewText,
+    String(linkCount),
+    sourceUrl
+  ].join("\u001f");
+
+  if (state.goalPreviewRenderKey !== renderKey) {
+    els.goalPreviewCategories.innerHTML = categoriesHtml;
+    els.goalPreviewCategoriesSection.hidden = !categoriesHtml;
+    els.goalPreviewDescription.innerHTML = overviewHtml || escapeHtml(description);
+    els.goalPreviewExcerpt.innerHTML = bodyHtml || escapeHtml(previewText);
+    els.goalPreviewExcerptSection.hidden = !(bodyHtml || previewText);
+    els.goalPreviewExcerpt.hidden = !(bodyHtml || previewText);
+    els.goalPreviewMeta.textContent = hasGoal
+      ? `이동 가능한 내부 링크 ${linkCount}개`
+      : "문서 정보 대기 중";
+    els.goalPreviewLink.href = sourceUrl;
+    els.goalPreviewLink.hidden = !hasGoal;
+    normalizeWikiArticleDom(els.goalPreview);
+    state.goalPreviewRenderKey = renderKey;
+  }
+
+  const isPreviewVisible = state.goalPreviewOpen && hasGoal;
+  els.goalTile.classList.toggle("is-preview-open", isPreviewVisible);
+  els.goalTile.setAttribute("aria-expanded", isPreviewVisible ? "true" : "false");
+  els.goalPreview.setAttribute("aria-hidden", isPreviewVisible ? "false" : "true");
+}
+
+function resetGoalPreviewState() {
+  state.goalPreviewOpen = false;
+  state.goalPreviewRenderKey = "";
+}
+
+function openGoalPreview() {
+  if (!state.goal || !state.hasStarted || state.goalPreviewOpen) return;
+
+  state.goalPreviewOpen = true;
+  renderGoalPreview();
+}
+
+function closeGoalPreview() {
+  if (!state.goalPreviewOpen) return;
+
+  state.goalPreviewOpen = false;
+  renderGoalPreview();
+}
+
+function openGoalPreviewFromPointer() {
+  if (!usesHoverGoalPreview()) return;
+
+  openGoalPreview();
+}
+
+function closeGoalPreviewFromPointer() {
+  if (!usesHoverGoalPreview() || els.goalTile.contains(document.activeElement)) return;
+
+  closeGoalPreview();
+}
+
+function openGoalPreviewFromFocus() {
+  if (usesCompactGoalPreview()) return;
+
+  openGoalPreview();
+}
+
+function closeGoalPreviewFromFocus(event) {
+  if (usesCompactGoalPreview() || els.goalTile.contains(event.relatedTarget)) return;
+
+  closeGoalPreview();
+}
+
+function toggleGoalPreviewFromPointer(event) {
+  if (event.target.closest("a")) return;
+  if (!usesCompactGoalPreview()) return;
+  if (!state.goal || !state.hasStarted) return;
+
+  state.goalPreviewOpen = !state.goalPreviewOpen;
+  renderGoalPreview();
+}
+
+function toggleGoalPreviewFromKeyboard(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  if (!state.goal || !state.hasStarted) return;
+
+  event.preventDefault();
+  state.goalPreviewOpen = !state.goalPreviewOpen;
+  renderGoalPreview();
+}
+
+function closeGoalPreviewFromOutside(event) {
+  if (!state.goalPreviewOpen || els.goalTile.contains(event.target)) return;
+
+  closeGoalPreview();
+}
+
+function preventGoalPreviewArticleLink(event) {
+  const link = event.target.closest(".game-wiki-link");
+  if (!link) return;
+
+  event.preventDefault();
+}
+
+function usesCompactGoalPreview() {
+  return window.matchMedia("(max-width: 560px)").matches;
+}
+
+function usesHoverGoalPreview() {
+  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
 function showHistory() {

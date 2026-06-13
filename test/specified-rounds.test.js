@@ -40,6 +40,41 @@ function emptyBacklinkHtml(title) {
   `;
 }
 
+function previewArticleHtml(title) {
+  return `
+    <html>
+      <head>
+        <meta property="og:title" content="${title}">
+        <meta property="og:description" content="${title}에 대해 서술한 문서.">
+        <link rel="canonical" href="https://namu.wiki/w/${encodeURIComponent(title)}">
+      </head>
+      <body>
+        <main>
+          <div class="wiki-content">
+            <div>
+              <span>분류</span>
+              <ul>
+                <li>동아시아의 전쟁</li>
+                <li>11세기</li>
+              </ul>
+            </div>
+            <div class="wiki-macro-toc">목차</div>
+            <h2 class="wiki-heading">1. 개요</h2>
+            <div class="wiki-paragraph"><p><a href="/w/부소">부소</a>와 서하 사이에서 벌어진 전투.</p></div>
+            <h2 class="wiki-heading">2. 경과</h2>
+            <table><tbody><tr><td>틀에 가까운 표 내용</td></tr></tbody></table>
+            <div class="wiki-paragraph">1082년 벌어진 전투의 경과를 설명하는 본문 문단.</div>
+            <ul>
+              <li><a href="/w/서하">서하</a>의 진군</li>
+              <li><a href="/w/송나라">송나라</a>의 대응</li>
+            </ul>
+          </div>
+        </main>
+      </body>
+    </html>
+  `;
+}
+
 test("reports friendly errors for missing specified articles", async () => {
   const dataDir = await mkdtemp(join(tmpdir(), "namuwiki-specified-rounds-"));
   process.env.DATA_DIR = dataDir;
@@ -147,6 +182,44 @@ test("accepts specified goal articles with backlinks", async () => {
     const created = await createRound({ startTitle: "시작", goalTitle: "목표" });
 
     assert.equal(created.round.goalTitle, "목표");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("returns goal preview from original article sections", async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), "namuwiki-specified-preview-"));
+  process.env.DATA_DIR = dataDir;
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const href = String(url);
+    if (href.startsWith("https://namu.wiki/backlink/")) {
+      return new Response(articleHtml("목표 역링크", ["시작"]), {
+        headers: { "Content-Type": "text/html" }
+      });
+    }
+
+    const encodedTitle = href.split("/w/")[1] || "";
+    const title = decodeURIComponent(encodedTitle);
+    return new Response(title === "목표" ? previewArticleHtml(title) : articleHtml(title, ["목표"]), {
+      headers: { "Content-Type": "text/html" }
+    });
+  };
+
+  try {
+    const moduleUrl = new URL(`../src/game.js?specified-preview=${Date.now()}`, import.meta.url);
+    const { createRound } = await import(moduleUrl.href);
+    const created = await createRound({ startTitle: "시작", goalTitle: "목표" });
+
+    assert.match(created.goal.previewCategoriesHtml, /동아시아의 전쟁/);
+    assert.match(created.goal.previewOverviewHtml, /부소/);
+    assert.equal((created.goal.previewOverviewHtml.match(/서하 사이에서 벌어진 전투/g) || []).length, 1);
+    assert.doesNotMatch(created.goal.previewOverviewHtml, /동아시아의 전쟁/);
+    assert.match(created.goal.previewBodyHtml, /1082년 벌어진 전투의 경과/);
+    assert.match(created.goal.previewBodyHtml, /data-game-title="서하"[\s\S]*서하[\s\S]*의 진군/);
+    assert.doesNotMatch(created.goal.previewBodyHtml, /틀에 가까운 표 내용/);
+    assert.doesNotMatch(created.goal.previewOverviewHtml, /목차/);
   } finally {
     globalThis.fetch = originalFetch;
   }
