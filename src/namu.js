@@ -14,6 +14,132 @@ const BLOCKED_NAMESPACES = [
   "삭제된사용자",
   "아이피사용자"
 ];
+const SAFE_ARTICLE_TAGS = new Set([
+  "a",
+  "b",
+  "blockquote",
+  "br",
+  "caption",
+  "code",
+  "col",
+  "colgroup",
+  "dd",
+  "del",
+  "details",
+  "div",
+  "dl",
+  "dt",
+  "em",
+  "figcaption",
+  "figure",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "hr",
+  "i",
+  "img",
+  "ins",
+  "kbd",
+  "li",
+  "mark",
+  "ol",
+  "p",
+  "pre",
+  "rb",
+  "rp",
+  "rt",
+  "ruby",
+  "s",
+  "samp",
+  "small",
+  "span",
+  "strong",
+  "sub",
+  "summary",
+  "sup",
+  "table",
+  "tbody",
+  "td",
+  "tfoot",
+  "th",
+  "thead",
+  "tr",
+  "u",
+  "ul",
+  "var",
+  "wbr"
+]);
+const VOID_ARTICLE_TAGS = new Set(["br", "col", "hr", "img", "wbr"]);
+const BLOCKED_ARTICLE_TAGS = new Set([
+  "applet",
+  "audio",
+  "base",
+  "button",
+  "canvas",
+  "embed",
+  "fieldset",
+  "form",
+  "frame",
+  "frameset",
+  "iframe",
+  "input",
+  "link",
+  "math",
+  "meta",
+  "noembed",
+  "noframes",
+  "noscript",
+  "object",
+  "param",
+  "plaintext",
+  "script",
+  "select",
+  "source",
+  "style",
+  "svg",
+  "template",
+  "textarea",
+  "track",
+  "video",
+  "xmp"
+]);
+const VOID_BLOCKED_ARTICLE_TAGS = new Set([
+  "base",
+  "embed",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track"
+]);
+const GLOBAL_ARTICLE_ATTRS = new Set([
+  "class",
+  "dir",
+  "id",
+  "lang",
+  "role",
+  "style",
+  "title"
+]);
+const URL_ARTICLE_ATTRS = new Set([
+  "action",
+  "data",
+  "formaction",
+  "href",
+  "poster",
+  "src",
+  "xlink:href"
+]);
+const IMAGE_HOSTS = new Set(["namu.wiki", "i.namu.wiki"]);
+const GAME_RUNTIME_CLASS_NAMES = new Set([
+  "game-wiki-link",
+  "wiki-link-disabled",
+  "wiki-link-external-disabled"
+]);
 
 export function normalizeTitle(title) {
   return decodeHtmlEntities(String(title || ""))
@@ -91,7 +217,7 @@ export function extractInternalLinks(html, currentTitle = "") {
   const current = normalizeTitle(currentTitle);
   const linksByTitle = new Map();
   const anchorPattern =
-    /<a\b[^>]*href=(["'])(?:(?:https?:)?\/\/namu\.wiki)?\/w\/([^"']+)\1[^>]*>([\s\S]*?)<\/a>/gi;
+    /<a\b[^>]*href\s*=\s*(["'])(?:(?:https?:)?\/\/namu\.wiki)?\/w\/([^"']+)\1[^>]*>([\s\S]*?)<\/a>/gi;
   let match;
 
   while ((match = anchorPattern.exec(html))) {
@@ -135,12 +261,14 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
     .replace(/<input\b[^>]*>/gi, "")
     .replace(/\s(on[a-z]+)=("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
     .replace(/\s(?:contenteditable|tabindex)=("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\sdata-(?:game-title|disabled-title|disabled-href)=("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\sclass=("[^"]*"|'[^']*'|[^\s>]+)/gi, stripGameRuntimeClassAttribute)
     .replace(/<div\b[^>]*class=(["'])[^"']*(?:WU8NJg0C|SWT3F7nb)[^"']*\1[^>]*>\s*(?:&nbsp;)?\s*<\/div>/gi, "")
     .replace(/<div\b[^>]*>\s*(?:&nbsp;)?\s*<\/div>/gi, "")
-    .replace(/<a\b([^>]*?)href=(["'])(?:(?:https?:)?\/\/namu\.wiki)?\/w\/([^"']+)\2([^>]*)>/gi, (match, before, quote, path, after) => {
+    .replace(/<a\b([^>]*?)href\s*=\s*(["'])(?:(?:https?:)?\/\/namu\.wiki)?\/w\/([^"']+)\2([^>]*)>/gi, (match, before, quote, path, after) => {
       const title = decodeTitleFromPath(path);
       const textTitle = escapeAttribute(title);
-      const attrs = `${before} ${after}`.replace(/\sclass=(["'])[\s\S]*?\1/gi, "");
+      const attrs = `${before} ${after}`.replace(/\sclass=("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
       if (!isPlayableArticleTitle(title, currentTitle)) {
         return `<span class="wiki-link-disabled" data-disabled-title="${textTitle}">`;
       }
@@ -148,7 +276,7 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
     })
     .replace(/<\/a>/gi, "</a>")
     .replace(/<span class="wiki-link-disabled"([^>]*)>([\s\S]*?)<\/a>/gi, "<span class=\"wiki-link-disabled\"$1>$2</span>")
-    .replace(/<a\b([^>]*?)href=(["'])(?!#)([^"']+)\2([^>]*)>([\s\S]*?)<\/a>/gi, (match, before, quote, href, after, content) => {
+    .replace(/<a\b([^>]*?)href\s*=\s*(["'])(?!#)([^"']+)\2([^>]*)>([\s\S]*?)<\/a>/gi, (match, before, quote, href, after, content) => {
       return `<span class="wiki-link-disabled wiki-link-external-disabled" data-disabled-href="${escapeAttribute(href)}">${content}</span>`;
     })
     .replace(/\s(src|href)=["']\/\/([^"']+)["']/gi, ' $1="https://$2"')
@@ -175,7 +303,353 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
     return imgTag;
   });
 
-  return sanitized.trim();
+  return sanitizeAllowedArticleHtml(sanitized).trim();
+}
+
+function stripGameRuntimeClassAttribute(match, rawValue) {
+  const quote = rawValue.startsWith('"') || rawValue.startsWith("'") ? rawValue[0] : "";
+  const value = decodeHtmlEntities(quote ? rawValue.slice(1, -1) : rawValue);
+  const classNames = value
+    .split(/\s+/)
+    .filter((className) => className && !GAME_RUNTIME_CLASS_NAMES.has(className));
+
+  return classNames.length ? ` class=${quote}${classNames.join(" ")}${quote}` : "";
+}
+
+function sanitizeAllowedArticleHtml(html) {
+  const input = String(html || "");
+  const blockedStack = [];
+  let sanitized = "";
+  let index = 0;
+
+  while (index < input.length) {
+    const tagStart = input.indexOf("<", index);
+    if (tagStart < 0) {
+      if (blockedStack.length === 0) sanitized += input.slice(index);
+      break;
+    }
+
+    if (blockedStack.length === 0) {
+      sanitized += input.slice(index, tagStart);
+    }
+
+    if (input.startsWith("<!--", tagStart)) {
+      const commentEnd = input.indexOf("-->", tagStart + 4);
+      index = commentEnd < 0 ? input.length : commentEnd + 3;
+      continue;
+    }
+
+    const tagEnd = findHtmlTagEnd(input, tagStart);
+    if (tagEnd < 0) {
+      if (blockedStack.length === 0) sanitized += "&lt;";
+      index = tagStart + 1;
+      continue;
+    }
+
+    const tag = input.slice(tagStart, tagEnd + 1);
+    const tagName = htmlTagName(tag);
+    index = tagEnd + 1;
+
+    if (!tagName) continue;
+
+    const localName = htmlLocalName(tagName);
+    const isClosing = /^<\s*\//.test(tag);
+    const isBlocked = isBlockedArticleTag(tagName);
+
+    if (blockedStack.length > 0) {
+      if (!isClosing && isBlocked && !VOID_BLOCKED_ARTICLE_TAGS.has(localName)) {
+        blockedStack.push(localName);
+      } else if (isClosing && localName === blockedStack.at(-1)) {
+        blockedStack.pop();
+      }
+      continue;
+    }
+
+    if (isBlocked) {
+      if (!isClosing && !VOID_BLOCKED_ARTICLE_TAGS.has(localName)) {
+        blockedStack.push(localName);
+      }
+      continue;
+    }
+
+    if (!SAFE_ARTICLE_TAGS.has(tagName)) continue;
+
+    if (isClosing) {
+      if (!VOID_ARTICLE_TAGS.has(tagName)) sanitized += `</${tagName}>`;
+      continue;
+    }
+
+    sanitized += sanitizeArticleStartTag(tagName, tag);
+  }
+
+  return sanitized;
+}
+
+function findHtmlTagEnd(html, startIndex) {
+  let quote = "";
+  for (let index = startIndex + 1; index < html.length; index += 1) {
+    const char = html[index];
+    if (quote) {
+      if (char === quote) quote = "";
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === ">") {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function htmlTagName(tag) {
+  return tag.match(/^<\s*\/?\s*([a-z][\w:-]*)/i)?.[1]?.toLowerCase() || "";
+}
+
+function htmlLocalName(tagName) {
+  return String(tagName || "").split(":").pop();
+}
+
+function isBlockedArticleTag(tagName) {
+  const localName = htmlLocalName(tagName);
+  return BLOCKED_ARTICLE_TAGS.has(tagName) || BLOCKED_ARTICLE_TAGS.has(localName);
+}
+
+function sanitizeArticleStartTag(tagName, tag) {
+  const attrs = [];
+  const seenAttrs = new Set();
+
+  for (const attr of parseHtmlAttributeEntries(tag)) {
+    if (seenAttrs.has(attr.name)) continue;
+    const sanitized = sanitizeArticleAttribute(tagName, attr.name, attr.value);
+    if (!sanitized) continue;
+
+    seenAttrs.add(sanitized.name);
+    attrs.push(`${sanitized.name}="${escapeAttribute(sanitized.value)}"`);
+  }
+
+  if (tagName === "img" && !seenAttrs.has("src")) return "";
+
+  return `<${tagName}${attrs.length ? ` ${attrs.join(" ")}` : ""}>`;
+}
+
+function parseHtmlAttributeEntries(tag) {
+  const tagPrefix = tag.match(/^<\s*\/?\s*[^\s/>]+/);
+  if (!tagPrefix) return [];
+
+  const attrs = [];
+  const source = tag
+    .slice(tagPrefix[0].length, tag.endsWith("/>") ? -2 : -1)
+    .trim();
+  const attrPattern =
+    /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+  let match;
+
+  while ((match = attrPattern.exec(source))) {
+    attrs.push({
+      name: match[1].toLowerCase(),
+      value: decodeHtmlEntities(match[2] ?? match[3] ?? match[4] ?? "")
+    });
+  }
+
+  return attrs;
+}
+
+function sanitizeArticleAttribute(tagName, name, value) {
+  if (!isAllowedArticleAttribute(tagName, name)) return null;
+  if (name.startsWith("on")) return null;
+  if (name.includes(":")) return null;
+  if (name === "contenteditable" || name === "tabindex") return null;
+  if (URL_ARTICLE_ATTRS.has(name) && !isAllowedUrlArticleAttribute(tagName, name)) {
+    return null;
+  }
+
+  if (name === "class") return sanitizeTokenListAttribute(name, value);
+  if (name === "id") return sanitizeIdentifierAttribute(name, value);
+  if (name === "style") return sanitizeStyleArticleAttribute(value);
+  if (name === "dir") return sanitizeEnumAttribute(name, value, ["auto", "ltr", "rtl"]);
+  if (name === "role") return sanitizeTokenAttribute(name, value);
+  if (name === "href") return sanitizeHrefArticleAttribute(value);
+  if (name === "src") return sanitizeImageSourceArticleAttribute(value);
+  if (name === "data-disabled-href") return sanitizeDisabledHrefArticleAttribute(value);
+  if (name === "width" || name === "height") return sanitizeDimensionAttribute(name, value);
+  if (name === "colspan" || name === "rowspan") return sanitizeIntegerAttribute(name, value, 1, 99);
+  if (name === "start" || name === "value") return sanitizeIntegerAttribute(name, value, -9999, 9999);
+  if (name === "type") return sanitizeEnumAttribute(name, value, ["1", "a", "A", "i", "I"]);
+  if (name === "loading") return sanitizeEnumAttribute(name, value, ["eager", "lazy"]);
+  if (name === "decoding") return sanitizeEnumAttribute(name, value, ["async", "auto", "sync"]);
+  if (name === "open") return { name, value: "" };
+
+  return sanitizePlainArticleAttribute(name, value);
+}
+
+function isAllowedArticleAttribute(tagName, name) {
+  if (GLOBAL_ARTICLE_ATTRS.has(name)) return true;
+  if (/^aria-[a-z0-9_-]+$/.test(name)) return true;
+
+  if (tagName === "a") {
+    return name === "href" || name === "data-game-title";
+  }
+  if (tagName === "span") {
+    return (
+      name === "data-disabled-href" ||
+      name === "data-disabled-title" ||
+      name === "data-game-title"
+    );
+  }
+  if (tagName === "img") {
+    return ["alt", "decoding", "height", "loading", "src", "width"].includes(name);
+  }
+  if (tagName === "details") return name === "open";
+  if (tagName === "td" || tagName === "th") {
+    return ["colspan", "headers", "rowspan", "scope"].includes(name);
+  }
+  if (tagName === "ol") return name === "start" || name === "type";
+  if (tagName === "li") return name === "value";
+
+  return false;
+}
+
+function isAllowedUrlArticleAttribute(tagName, name) {
+  return (tagName === "a" && name === "href") || (tagName === "img" && name === "src");
+}
+
+function sanitizeTokenListAttribute(name, value) {
+  const tokens = String(value || "")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => /^[^\s"'`<>/=\\]+$/.test(token));
+
+  return tokens.length ? { name, value: tokens.join(" ") } : null;
+}
+
+function sanitizeTokenAttribute(name, value) {
+  const token = String(value || "").trim();
+  return /^[a-z0-9_-]+$/i.test(token) ? { name, value: token } : null;
+}
+
+function sanitizeIdentifierAttribute(name, value) {
+  const id = String(value || "").trim();
+  return id && /^[^\s"'`<>]+$/.test(id) ? { name, value: id } : null;
+}
+
+function sanitizePlainArticleAttribute(name, value) {
+  const sanitized = String(value || "").replace(/[\u0000-\u001f\u007f]/g, " ").trim();
+  return sanitized && !/[<>`]/.test(sanitized) ? { name, value: sanitized } : null;
+}
+
+function sanitizeStyleArticleAttribute(value) {
+  const declarations = String(value || "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split(";")
+    .map((declaration) => declaration.trim())
+    .filter(Boolean)
+    .filter(isSafeStyleDeclaration);
+
+  return declarations.length ? { name: "style", value: declarations.join("; ") } : null;
+}
+
+function isSafeStyleDeclaration(declaration) {
+  const separatorIndex = declaration.indexOf(":");
+  if (separatorIndex <= 0) return false;
+
+  const property = declaration.slice(0, separatorIndex).trim();
+  const value = declaration.slice(separatorIndex + 1).trim();
+  const decoded = decodeCssEscapes(`${property}:${value}`).toLowerCase();
+  const compactDecoded = decoded.replace(/[\u0000-\u001f\u007f\s]+/g, "");
+  const dangerousPattern =
+    /(?:url\s*\(|expression\s*\(|@import\b|-moz-binding\b|behavior\s*:|javascript\s*:|data\s*:|vbscript\s*:)/i;
+  const compactDangerousPattern =
+    /(?:url\(|expression\(|@import|-moz-binding|behavior:|javascript:|data:|vbscript:)/i;
+
+  if (!/^(?:-?[a-z_][a-z0-9_-]*|--[a-z0-9_-]+)$/i.test(property)) return false;
+  if (!value || /[<>`]/.test(value)) return false;
+  return !dangerousPattern.test(decoded) && !compactDangerousPattern.test(compactDecoded);
+}
+
+function decodeCssEscapes(value) {
+  return String(value || "").replace(/\\([0-9a-f]{1,6}\s?|.)/gi, (match, escape) => {
+    if (!/^[0-9a-f]/i.test(escape)) return escape;
+    return String.fromCodePoint(Number.parseInt(escape.trim(), 16));
+  });
+}
+
+function sanitizeEnumAttribute(name, value, allowedValues) {
+  const sanitized = String(value || "").trim();
+  return allowedValues.includes(sanitized) ? { name, value: sanitized } : null;
+}
+
+function sanitizeIntegerAttribute(name, value, min, max) {
+  const number = Number.parseInt(String(value || "").trim(), 10);
+  if (!Number.isInteger(number) || number < min || number > max) return null;
+  return { name, value: String(number) };
+}
+
+function sanitizeDimensionAttribute(name, value) {
+  const sanitized = String(value || "").trim();
+  return /^(?:0|[1-9]\d{0,3})(?:\.\d{1,2})?%?$/.test(sanitized)
+    ? { name, value: sanitized }
+    : null;
+}
+
+function sanitizeHrefArticleAttribute(value) {
+  const href = normalizeUrlLikeAttribute(value);
+  return href.startsWith("#") && isSafeFragmentHref(href) ? { name: "href", value: href } : null;
+}
+
+function sanitizeImageSourceArticleAttribute(value) {
+  const src = normalizeImageArticleUrl(value);
+  return src ? { name: "src", value: src } : null;
+}
+
+function sanitizeDisabledHrefArticleAttribute(value) {
+  const href = normalizeUrlLikeAttribute(value);
+  if (!href) return null;
+  if (href.startsWith("#")) {
+    return isSafeFragmentHref(href) ? { name: "data-disabled-href", value: href } : null;
+  }
+  if (href.startsWith("/") && !href.startsWith("//") && !/[<>"'`\s]/.test(href)) {
+    return { name: "data-disabled-href", value: href };
+  }
+
+  try {
+    const url = new URL(href);
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? { name: "data-disabled-href", value: url.href }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeUrlLikeAttribute(value) {
+  return String(value || "")
+    .replace(/[\u0000-\u001f\u007f\s]+/g, "")
+    .trim();
+}
+
+function isSafeFragmentHref(value) {
+  return /^#[A-Za-z0-9_.:%-]*$/.test(value);
+}
+
+function normalizeImageArticleUrl(value) {
+  const rawUrl = normalizeUrlLikeAttribute(value);
+  if (!rawUrl || rawUrl.startsWith("#")) return "";
+
+  let normalizedUrl = rawUrl;
+  if (normalizedUrl.startsWith("//")) {
+    normalizedUrl = `https:${normalizedUrl}`;
+  } else if (normalizedUrl.startsWith("/")) {
+    normalizedUrl = `https://namu.wiki${normalizedUrl}`;
+  }
+
+  try {
+    const url = new URL(normalizedUrl);
+    if (!["http:", "https:"].includes(url.protocol)) return "";
+    if (!IMAGE_HOSTS.has(url.hostname)) return "";
+    url.protocol = "https:";
+    return url.href;
+  } catch {
+    return "";
+  }
 }
 
 function extractCanonicalUrl(html) {

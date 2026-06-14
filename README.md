@@ -49,10 +49,11 @@ The app is prepared for Vercel with:
 Deploy from the repository root with Vercel's default project settings. No build
 command is required. Leave the Output Directory setting empty/default.
 
-Optional environment variable:
+Environment variables:
 
 - `ROUND_SECRET`: secret used to sign round-state tokens. A local development
-  default is provided, but production deployments should set their own value.
+  default is provided, but production deployments must set their own value or
+  the server will refuse to start.
 - `ALLOW_SYNTHETIC_FALLBACK=1`: allows temporary synthetic articles when an
   upstream request is rejected with 403. This is enabled automatically on Vercel.
 

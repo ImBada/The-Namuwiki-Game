@@ -1,6 +1,8 @@
 import { createHmac } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { getRoundSecret } from "./config.js";
+import { verifyCompletedDailyRound } from "./game.js";
 import { httpError } from "./http.js";
 
 const DATA_DIR = resolve(
@@ -9,8 +11,7 @@ const DATA_DIR = resolve(
   join(process.cwd(), ".data")
 );
 const DAILY_SCORES_FILE = join(DATA_DIR, "daily-scores.json");
-const ROUND_SECRET =
-  process.env.ROUND_SECRET || "the-namuwiki-game-local-round-secret";
+const ROUND_SECRET = getRoundSecret();
 
 let dailyScoreWriteQueue = Promise.resolve();
 
@@ -23,10 +24,15 @@ export async function getDailyLeaderboard() {
   };
 }
 
-export async function submitDailyScore(body) {
+export async function submitDailyScore(body, options = {}) {
   const dateKey = todayDateKey();
   const nickname = normalizeNickname(body?.nickname);
   if (!nickname) throw httpError(400, "닉네임을 입력해 주세요.");
+
+  const completedRound = verifyCompletedDailyRound(body?.roundId, { dateKey });
+  assertSubmittedRoundMetrics(body, completedRound);
+  const now = resolveTimestamp(options.now);
+  const elapsedSeconds = elapsedSecondsFromRound(completedRound.startedAt, now, body?.elapsedSeconds);
 
   const score = {
     id: createHmac("sha256", ROUND_SECRET)
@@ -35,9 +41,9 @@ export async function submitDailyScore(body) {
       .slice(0, 16),
     dateKey,
     nickname,
-    clickCount: clampInteger(body?.clickCount, 0, 999),
-    elapsedSeconds: clampInteger(body?.elapsedSeconds, 0, 24 * 60 * 60),
-    pathLength: clampInteger(body?.pathLength, 1, 1000),
+    clickCount: completedRound.clickCount,
+    elapsedSeconds,
+    pathLength: completedRound.pathLength,
     completedAt: new Date().toISOString()
   };
 
@@ -60,6 +66,45 @@ export async function submitDailyScore(body) {
 function queueDailyScoreWrite(task) {
   dailyScoreWriteQueue = dailyScoreWriteQueue.then(task, task);
   return dailyScoreWriteQueue;
+}
+
+function assertSubmittedRoundMetrics(body, completedRound) {
+  const clickCount = parseSubmittedInteger(body?.clickCount);
+  const pathLength = parseSubmittedInteger(body?.pathLength);
+  if (
+    clickCount !== completedRound.clickCount ||
+    pathLength !== completedRound.pathLength
+  ) {
+    throw httpError(400, "제출된 라운드 기록이 일치하지 않습니다.");
+  }
+}
+
+function parseSubmittedInteger(value) {
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) ? value : null;
+  }
+  if (typeof value !== "string" || !/^\d+$/.test(value.trim())) return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function elapsedSecondsFromRound(startedAt, now, submittedElapsedSeconds) {
+  if (now + 5000 < startedAt) {
+    throw httpError(400, "라운드 시간이 올바르지 않습니다.");
+  }
+  const serverElapsedSeconds = clampInteger(
+    Math.floor(Math.max(1000, now - startedAt) / 1000),
+    1,
+    24 * 60 * 60
+  );
+  const submittedElapsed = parseSubmittedInteger(submittedElapsedSeconds);
+  if (!submittedElapsed || submittedElapsed < 1) return 1;
+  return Math.min(submittedElapsed, serverElapsedSeconds);
+}
+
+function resolveTimestamp(value) {
+  const timestamp = Number(value);
+  return Number.isFinite(timestamp) ? timestamp : Date.now();
 }
 
 async function readDailyScoreStore() {

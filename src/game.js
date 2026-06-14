@@ -14,6 +14,7 @@ import {
   normalizeTitle,
   stripTags
 } from "./namu.js";
+import { getRoundSecret } from "./config.js";
 import { httpError } from "./http.js";
 
 const DOCUMENT_CACHE_TTL_DAYS = 7;
@@ -56,8 +57,7 @@ const NAMU_FETCH_TIMEOUT_MS = Number.parseInt(
   process.env.NAMU_FETCH_TIMEOUT_MS || "10000",
   10
 );
-const ROUND_SECRET =
-  process.env.ROUND_SECRET || "the-namuwiki-game-local-round-secret";
+const ROUND_SECRET = getRoundSecret();
 const ALLOW_SYNTHETIC_FALLBACK =
   process.env.ALLOW_SYNTHETIC_FALLBACK === "1" || process.env.VERCEL === "1";
 
@@ -84,7 +84,12 @@ const sensitiveTerms = [
 export async function createRound(options = {}) {
   const requestedStartTitle = normalizeTitle(options.startTitle);
   const requestedGoalTitle = normalizeTitle(options.goalTitle);
-  const dailyChallenge = Boolean(options.dailyChallenge);
+  const requestedDailyChallenge = Boolean(options.dailyChallenge);
+  const persistedDailyChallenge = Boolean(options.persistedDailyChallenge);
+  const dailyChallenge = persistedDailyChallenge;
+  const dailyDateKey = dailyChallenge
+    ? normalizeDailyDateKey(options.dailyDateKey)
+    : "";
   if (
     requestedStartTitle &&
     requestedGoalTitle &&
@@ -92,7 +97,12 @@ export async function createRound(options = {}) {
   ) {
     throw httpError(400, "시작 문서와 목표 문서는 서로 달라야 합니다.");
   }
-  if (dailyChallenge && !requestedStartTitle && !requestedGoalTitle) {
+  if (
+    requestedDailyChallenge &&
+    !persistedDailyChallenge &&
+    !requestedStartTitle &&
+    !requestedGoalTitle
+  ) {
     return createPersistedDailyRound(todayDateKey());
   }
 
@@ -125,7 +135,8 @@ export async function createRound(options = {}) {
     path: [startArticle.title],
     startedAt: Date.now(),
     clickCount: 0,
-    dailyChallenge
+    dailyChallenge,
+    dailyDateKey
   };
 
   return {
@@ -151,7 +162,9 @@ async function createPersistedDailyRound(dateKey) {
   return createRound({
     startTitle: storedRound.startTitle,
     goalTitle: storedRound.goalTitle,
-    dailyChallenge: true
+    dailyChallenge: true,
+    persistedDailyChallenge: true,
+    dailyDateKey: dateKey
   });
 }
 
@@ -300,9 +313,69 @@ export async function handleRewind(body) {
   };
 }
 
+export function verifyCompletedDailyRound(roundId, options = {}) {
+  const round = decodeRoundToken(String(roundId || ""));
+  if (!round) throw httpError(400, "유효하지 않은 라운드입니다.");
+  if (!round.dailyChallenge) {
+    throw httpError(400, "일일 챌린지 기록만 등록할 수 있습니다.");
+  }
+
+  const expectedDateKey = normalizeDailyDateKey(options.dateKey) || todayDateKey();
+  const dailyDateKey = normalizeDailyDateKey(round.dailyDateKey);
+  const startTitle = normalizeTitle(round.startTitle);
+  const goalTitle = normalizeTitle(round.goalTitle);
+  const currentTitle = normalizeTitle(round.currentTitle);
+  const path = Array.isArray(round.path) ? round.path.map((title) => normalizeTitle(title)) : [];
+  const clickCount = Number(round.clickCount);
+  const startedAt = Number(round.startedAt);
+
+  if (
+    !startTitle ||
+    !goalTitle ||
+    !currentTitle ||
+    path.length < 2 ||
+    path.some((title) => !title)
+  ) {
+    throw httpError(400, "라운드 기록이 올바르지 않습니다.");
+  }
+  if (!sameTitle(path[0], startTitle)) {
+    throw httpError(400, "라운드 기록이 올바르지 않습니다.");
+  }
+  if (!dailyDateKey || dailyDateKey !== expectedDateKey) {
+    throw httpError(400, "오늘의 일일 챌린지 기록만 등록할 수 있습니다.");
+  }
+  if (!sameTitle(currentTitle, goalTitle) || !sameTitle(path[path.length - 1], goalTitle)) {
+    throw httpError(400, "완료된 일일 챌린지만 등록할 수 있습니다.");
+  }
+  if (
+    !Number.isSafeInteger(clickCount) ||
+    clickCount < 0 ||
+    clickCount !== path.length - 1
+  ) {
+    throw httpError(400, "라운드 클릭 기록이 일치하지 않습니다.");
+  }
+  if (!Number.isSafeInteger(startedAt) || startedAt <= 0) {
+    throw httpError(400, "라운드 시간이 올바르지 않습니다.");
+  }
+
+  return {
+    startTitle,
+    goalTitle,
+    currentTitle,
+    path,
+    clickCount,
+    pathLength: path.length,
+    startedAt,
+    dailyDateKey,
+    dailyChallenge: true
+  };
+}
+
 async function pickRandomArticle() {
   try {
-    const response = await fetch("https://namu.wiki/random");
+    const response = await fetch("https://namu.wiki/random", {
+      signal: AbortSignal.timeout(NAMU_FETCH_TIMEOUT_MS)
+    });
     const article = extractArticle(await response.text(), "");
     if (article.title && article.links.length > 0) {
       await cacheArticle(article, [article.title]);
@@ -760,7 +833,8 @@ function publicRound(round) {
     path: round.path,
     clickCount: round.clickCount,
     startedAt: round.startedAt,
-    dailyChallenge: Boolean(round.dailyChallenge)
+    dailyChallenge: Boolean(round.dailyChallenge),
+    dailyDateKey: round.dailyDateKey || ""
   };
 }
 
@@ -772,7 +846,8 @@ function encodeRoundToken(round) {
     path: round.path,
     clickCount: round.clickCount,
     startedAt: round.startedAt,
-    dailyChallenge: Boolean(round.dailyChallenge)
+    dailyChallenge: Boolean(round.dailyChallenge),
+    dailyDateKey: round.dailyDateKey || ""
   })).toString("base64url");
   return `${payload}.${signRoundPayload(payload)}`;
 }

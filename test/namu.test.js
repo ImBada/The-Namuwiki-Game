@@ -135,6 +135,23 @@ test("treats absolute NamuWiki article URLs as playable internal links", () => {
   assert.doesNotMatch(html, /data-disabled-href="https:\/\/namu\.wiki\/w\//);
 });
 
+test("rewrites internal links when href has surrounding spaces", () => {
+  const source = `
+    <a class="wiki-link-internal" href = "/w/%ED%95%9C%EA%B8%80">한글</a>
+    <a href = "https://namu.wiki/w/%EC%9D%B8%ED%84%B0%EB%84%B7">인터넷</a>
+  `;
+
+  const links = extractInternalLinks(source, "현재");
+  assert.deepEqual(
+    links.map((link) => link.title),
+    ["인터넷", "한글"]
+  );
+
+  const html = sanitizeArticleHtml(source, "현재");
+  assert.match(html, /data-game-title="한글"/);
+  assert.match(html, /data-game-title="인터넷"/);
+});
+
 test("promotes NamuWiki lazy images without keeping loading-only classes", () => {
   const html = sanitizeArticleHtml(`
     <span class="HuBzh58z" style="width:20px;">
@@ -147,6 +164,58 @@ test("promotes NamuWiki lazy images without keeping loading-only classes", () =>
   assert.match(html, /src="https:\/\/i\.namu\.wiki\/i\/road\.svg"/);
   assert.match(html, /class="LhxTIpX9"/);
   assert.doesNotMatch(html, /DeArQah4|wiki-image-loading/);
+});
+
+test("removes dangerous article tags and unsafe URL attributes", () => {
+  const html = sanitizeArticleHtml(`
+    <div>
+      안전한 본문
+      <object data="https://example.com/payload.swf"><param name="movie" value="x"></object>
+      <embed src="https://example.com/payload.swf">
+      <svg><a xlink:href="javascript:alert(1)"><text>svg payload</text></a></svg>
+      <math><mtext>math payload</mtext></math>
+      <video poster="https://example.com/poster.png"><source src="https://example.com/movie.mp4"></video>
+      <link rel="stylesheet" href="https://example.com/payload.css">
+      <meta http-equiv="refresh" content="0;javascript:alert(1)">
+      <base href="https://example.com/">
+      <img src="javascript:alert(1)" data-src="data:image/svg+xml;base64,placeholder">
+      <img src="//evil.example/bad.png">
+      <img src="//i.namu.wiki/i/safe.png" alt="safe">
+    </div>
+  `);
+
+  assert.match(html, /안전한 본문/);
+  assert.match(html, /src="https:\/\/i\.namu\.wiki\/i\/safe\.png"/);
+  assert.doesNotMatch(html, /<(?:object|embed|svg|math|video|source|link|meta|base)\b/i);
+  assert.doesNotMatch(html, /javascript:|data:image|xlink:href|evil\.example|svg payload|math payload/i);
+});
+
+test("keeps safe inline styles while dropping dangerous CSS and href schemes", () => {
+  const html = sanitizeArticleHtml(`
+    <span style="color: red; background-image: url(javascript:alert(1)); width: calc(100% - 1px); border-image: java
+script:alert(1); behavior:url(#x); -moz-binding:url(x)">스타일</span>
+    <a href="javascript:alert(1)">위험 링크</a>
+    <a href="#s-2" style="color: green">목차</a>
+  `);
+
+  assert.match(html, /style="color: red; width: calc\(100% - 1px\)"/);
+  assert.match(html, /href="#s-2"/);
+  assert.match(html, /style="color: green"/);
+  assert.doesNotMatch(html, /java\s*script\s*:|data:image|url\(|expression\s*\(|behavior\s*:|-moz-binding|data-disabled-href/i);
+});
+
+test("does not allow source HTML to forge playable link runtime attributes", () => {
+  const html = sanitizeArticleHtml(`
+    <a class="game-wiki-link wiki-link-disabled" data-game-title="가짜" href="#s-1">가짜 링크</a>
+    <a class="game&#45;wiki-link" data-game-title="가짜" href="#s-2">엔티티 링크</a>
+    <a class=game-wiki-link data-game-title="가짜" href="/w/%EC%A7%84%EC%A7%9C">진짜 링크</a>
+  `);
+
+  assert.match(html, /<a href="#s-1">가짜 링크<\/a>/);
+  assert.match(html, /<a href="#s-2">엔티티 링크<\/a>/);
+  assert.match(html, /data-game-title="진짜"/);
+  assert.match(html, /class="game-wiki-link"/);
+  assert.doesNotMatch(html, /data-game-title="가짜"|wiki-link-disabled/);
 });
 
 test("extracts the article body when a NamuWiki content container exists", () => {

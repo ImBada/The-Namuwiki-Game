@@ -64,7 +64,11 @@ export async function handleRequest(request, response) {
     if (multiplayerRoomMatch && request.method === "GET") {
       return sendJson(
         response,
-        getMultiplayerRoom(multiplayerRoomMatch[1], url.searchParams.get("peerId") || "")
+        getMultiplayerRoom(
+          multiplayerRoomMatch[1],
+          url.searchParams.get("peerId") || "",
+          readPeerSecret(request)
+        )
       );
     }
 
@@ -82,6 +86,7 @@ export async function handleRequest(request, response) {
         readMultiplayerSignals(
           multiplayerSignalMatch[1],
           url.searchParams.get("peerId") || "",
+          readPeerSecret(request),
           url.searchParams.get("after") || "0"
         )
       );
@@ -89,7 +94,14 @@ export async function handleRequest(request, response) {
 
     if (multiplayerSignalMatch && request.method === "POST") {
       const body = await readJsonBody(request);
-      return sendJson(response, addMultiplayerSignal(multiplayerSignalMatch[1], body), 201);
+      return sendJson(
+        response,
+        addMultiplayerSignal(multiplayerSignalMatch[1], {
+          ...body,
+          peerSecret: readPeerSecret(request)
+        }),
+        201
+      );
     }
 
     if (url.pathname === "/api/click" && request.method === "POST") {
@@ -111,6 +123,12 @@ export async function handleRequest(request, response) {
 
 export const app = createServer(handleRequest);
 export default app;
+
+function readPeerSecret(request) {
+  const header = request.headers["x-peer-secret"];
+  const headerValue = Array.isArray(header) ? header[0] : header;
+  return String(headerValue || "");
+}
 
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
   app.listen(PORT, HOST, () => {

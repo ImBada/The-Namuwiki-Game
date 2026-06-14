@@ -18,10 +18,13 @@ export function createMultiplayerRoom(body = {}) {
   cleanupMultiplayerRooms();
 
   const hostPeerId = createPeerId();
+  const hostPeerSecret = createPeerSecret();
   const room = {
     code: createRoomCode(),
     hostPeerId,
+    hostPeerSecret,
     guestPeerId: "",
+    guestPeerSecret: "",
     createdAt: Date.now(),
     updatedAt: Date.now(),
     expiresAt: Date.now() + ROOM_TTL_MS,
@@ -29,7 +32,7 @@ export function createMultiplayerRoom(body = {}) {
   };
 
   rooms.set(room.code, room);
-  return publicRoom(room, hostPeerId);
+  return authenticatedRoom(room, hostPeerId, hostPeerSecret);
 }
 
 export function joinMultiplayerRoom(code, body = {}) {
@@ -41,25 +44,24 @@ export function joinMultiplayerRoom(code, body = {}) {
   }
 
   room.guestPeerId = createPeerId();
+  room.guestPeerSecret = createPeerSecret();
   touchRoom(room);
-  return publicRoom(room, room.guestPeerId);
+  return authenticatedRoom(room, room.guestPeerId, room.guestPeerSecret);
 }
 
-export function getMultiplayerRoom(code, peerId = "") {
+export function getMultiplayerRoom(code, peerId = "", peerSecret = "") {
   cleanupMultiplayerRooms();
 
   const room = getRoom(code);
-  if (peerId && !isRoomPeer(room, peerId)) {
-    throw httpError(403, "이 방에 참여한 플레이어가 아닙니다.");
-  }
-  return publicRoom(room, peerId);
+  const normalizedPeerId = requireAuthorizedPeer(room, peerId, peerSecret);
+  return publicRoom(room, normalizedPeerId);
 }
 
 export function addMultiplayerSignal(code, body = {}) {
   cleanupMultiplayerRooms();
 
   const room = getRoom(code);
-  const from = normalizePeerId(body.from);
+  const from = requireAuthorizedPeer(room, body.from, body.peerSecret);
   const to = normalizePeerId(body.to);
   if (!isRoomPeer(room, from) || !isRoomPeer(room, to) || from === to) {
     throw httpError(400, "잘못된 시그널 대상입니다.");
@@ -81,14 +83,11 @@ export function addMultiplayerSignal(code, body = {}) {
   return { ok: true, signalId: signal.id };
 }
 
-export function readMultiplayerSignals(code, peerId, after = 0) {
+export function readMultiplayerSignals(code, peerId, peerSecret, after = 0) {
   cleanupMultiplayerRooms();
 
   const room = getRoom(code);
-  const normalizedPeerId = normalizePeerId(peerId);
-  if (!isRoomPeer(room, normalizedPeerId)) {
-    throw httpError(403, "이 방에 참여한 플레이어가 아닙니다.");
-  }
+  const normalizedPeerId = requireAuthorizedPeer(room, peerId, peerSecret);
 
   const afterId = Number.parseInt(after, 10) || 0;
   const signals = pruneSignals(room.signals)
@@ -129,6 +128,10 @@ function createPeerId() {
   return randomBytes(9).toString("base64url");
 }
 
+function createPeerSecret() {
+  return randomBytes(32).toString("base64url");
+}
+
 function getRoom(code) {
   const normalizedCode = normalizeRoomCode(code);
   const room = rooms.get(normalizedCode);
@@ -157,6 +160,14 @@ function normalizePeerId(peerId) {
   return normalized;
 }
 
+function normalizePeerSecret(peerSecret) {
+  const normalized = String(peerSecret || "").trim();
+  if (!/^[A-Za-z0-9_-]{32,128}$/.test(normalized)) {
+    throw httpError(403, "플레이어 인증이 필요합니다.");
+  }
+  return normalized;
+}
+
 function normalizeSignalType(type) {
   const normalized = String(type || "").trim();
   if (!["offer", "answer", "ice"].includes(normalized)) {
@@ -174,20 +185,50 @@ function normalizeSignalPayload(payload) {
 }
 
 function isRoomPeer(room, peerId) {
-  return room.hostPeerId === peerId || room.guestPeerId === peerId;
+  return Boolean(peerId) && (room.hostPeerId === peerId || room.guestPeerId === peerId);
+}
+
+function peerSecretFor(room, peerId) {
+  if (room.hostPeerId === peerId) return room.hostPeerSecret;
+  if (room.guestPeerId === peerId) return room.guestPeerSecret;
+  return "";
+}
+
+function requireAuthorizedPeer(room, peerId, peerSecret) {
+  if (!String(peerId || "").trim() || !String(peerSecret || "").trim()) {
+    throw httpError(403, "플레이어 인증이 필요합니다.");
+  }
+  const normalizedPeerId = normalizePeerId(peerId);
+  const normalizedPeerSecret = normalizePeerSecret(peerSecret);
+  if (peerSecretFor(room, normalizedPeerId) !== normalizedPeerSecret) {
+    throw httpError(403, "플레이어 인증이 필요합니다.");
+  }
+  return normalizedPeerId;
+}
+
+function authenticatedRoom(room, peerId, peerSecret) {
+  return {
+    ...publicRoom(room, peerId),
+    peerSecret
+  };
 }
 
 function publicRoom(room, peerId = "") {
+  const isAuthorizedPeer = isRoomPeer(room, peerId);
   return {
     room: {
       code: room.code,
-      isHost: peerId ? room.hostPeerId === peerId : false,
-      hostPeerId: room.hostPeerId,
-      guestPeerId: room.guestPeerId,
+      isHost: isAuthorizedPeer ? room.hostPeerId === peerId : false,
+      ...(isAuthorizedPeer
+        ? {
+            hostPeerId: room.hostPeerId,
+            guestPeerId: room.guestPeerId
+          }
+        : {}),
       hasGuest: Boolean(room.guestPeerId),
       expiresAt: new Date(room.expiresAt).toISOString()
     },
-    peerId
+    peerId: isAuthorizedPeer ? peerId : ""
   };
 }
 

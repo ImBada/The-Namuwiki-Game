@@ -262,6 +262,7 @@ function createMultiplayerState() {
   return {
     room: null,
     peerId: "",
+    peerSecret: "",
     isHost: false,
     peerConnection: null,
     channel: null,
@@ -1082,6 +1083,7 @@ async function createMultiplayerRoom() {
     resetMultiplayerConnection();
     state.multiplayer.room = data.room;
     state.multiplayer.peerId = data.peerId;
+    state.multiplayer.peerSecret = data.peerSecret;
     state.multiplayer.isHost = true;
     state.multiplayer.status = "상대를 기다리는 중";
     addChatSystemMessage("방이 만들어졌습니다. 공유 코드를 보내 주세요.");
@@ -1115,6 +1117,7 @@ async function joinMultiplayerRoom() {
     resetMultiplayerConnection();
     state.multiplayer.room = data.room;
     state.multiplayer.peerId = data.peerId;
+    state.multiplayer.peerSecret = data.peerSecret;
     state.multiplayer.isHost = false;
     state.multiplayer.status = "상대방 연결 중";
     state.multiplayer.roundPreviewStatus = "호스트가 고른 게임을 기다리는 중입니다.";
@@ -1133,11 +1136,14 @@ function startRoomPoll() {
   stopRoomPoll();
   state.multiplayer.roomPollTimer = window.setInterval(async () => {
     const mp = state.multiplayer;
-    if (!mp.room || !mp.peerId || !mp.isHost || mp.connected || mp.connecting) return;
+    if (!mp.room || !mp.peerId || !mp.peerSecret || !mp.isHost || mp.connected || mp.connecting) {
+      return;
+    }
     try {
-      const data = await fetchJson(
-        `/api/multiplayer/rooms/${mp.room.code}?peerId=${encodeURIComponent(mp.peerId)}`
-      );
+      const params = new URLSearchParams({ peerId: mp.peerId });
+      const data = await fetchJson(`/api/multiplayer/rooms/${mp.room.code}?${params}`, {
+        headers: { "X-Peer-Secret": mp.peerSecret }
+      });
       mp.room = data.room;
       if (mp.room.hasGuest) {
         mp.status = "상대방 연결 중";
@@ -1226,10 +1232,13 @@ function bindDataChannel(channel) {
 async function sendSignal(type, payload) {
   const mp = state.multiplayer;
   const to = mp.isHost ? mp.room?.guestPeerId : mp.room?.hostPeerId;
-  if (!mp.room?.code || !mp.peerId || !to) return;
+  if (!mp.room?.code || !mp.peerId || !mp.peerSecret || !to) return;
   await fetchJson(`/api/multiplayer/rooms/${mp.room.code}/signals`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Peer-Secret": mp.peerSecret
+    },
     body: JSON.stringify({ from: mp.peerId, to, type, payload })
   });
 }
@@ -1249,13 +1258,15 @@ function stopSignalPoll() {
 
 async function pollSignals() {
   const mp = state.multiplayer;
-  if (!mp.room?.code || !mp.peerId) return;
+  if (!mp.room?.code || !mp.peerId || !mp.peerSecret) return;
   try {
     const params = new URLSearchParams({
       peerId: mp.peerId,
       after: String(mp.lastSignalId || 0)
     });
-    const data = await fetchJson(`/api/multiplayer/rooms/${mp.room.code}/signals?${params}`);
+    const data = await fetchJson(`/api/multiplayer/rooms/${mp.room.code}/signals?${params}`, {
+      headers: { "X-Peer-Secret": mp.peerSecret }
+    });
     if (data.room) mp.room = data.room;
     for (const signal of data.signals || []) {
       mp.lastSignalId = Math.max(mp.lastSignalId, signal.id || 0);
@@ -2619,6 +2630,7 @@ async function submitDailyScoreFromDialog(event) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         nickname,
+        roundId: state.round.id,
         clickCount: state.round.clickCount || 0,
         elapsedSeconds: state.completedElapsedSeconds || elapsedSecondsForRound(),
         pathLength: (state.round.path || []).length
