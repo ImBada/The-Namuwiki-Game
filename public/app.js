@@ -86,7 +86,6 @@ const els = {
   leaderboardScope: document.querySelector("#leaderboardScope"),
   leaderboardFullButton: document.querySelector("#leaderboardFullButton"),
   leaderboardBackButton: document.querySelector("#leaderboardBackButton"),
-  leaderboardRefreshButton: document.querySelector("#leaderboardRefreshButton"),
   leaderboardFullDate: document.querySelector("#leaderboardFullDate"),
   leaderboardFullCount: document.querySelector("#leaderboardFullCount"),
   dailyLeaderboard: document.querySelector("#dailyLeaderboard"),
@@ -204,7 +203,6 @@ els.historyButton.addEventListener("click", showHistory);
 els.historyBackButton.addEventListener("click", showHomeBoard);
 els.leaderboardFullButton.addEventListener("click", showFullLeaderboard);
 els.leaderboardBackButton.addEventListener("click", showHomeBoard);
-els.leaderboardRefreshButton.addEventListener("click", refreshDailyLeaderboard);
 els.clearHistoryButton.addEventListener("click", clearHistory);
 els.historyPrevButton.addEventListener("click", () => changeHistoryPage(-1));
 els.historyNextButton.addEventListener("click", () => changeHistoryPage(1));
@@ -1861,7 +1859,6 @@ function renderFullLeaderboard() {
   const scores = state.dailyScoresDateKey === todayDateKey() ? state.dailyScores : [];
   els.leaderboardFullDate.textContent = todayDisplayDate();
   els.leaderboardFullCount.textContent = `${scores.length}명`;
-  els.leaderboardRefreshButton.disabled = state.dailyScoresLoading;
 
   if (scores.length === 0) {
     const item = document.createElement("li");
@@ -1886,7 +1883,7 @@ function createLeaderboardItem(score, index, options = {}) {
 
   rank.textContent = String(index + 1);
   title.textContent = score.nickname || "익명";
-  meta.textContent = options.showCompletedAt && completedAt ? `${baseMeta} · ${completedAt}` : baseMeta;
+  meta.textContent = options.showCompletedAt && completedAt ? `${baseMeta} · 완료 ${completedAt}` : baseMeta;
 
   item.append(rank, title, meta);
   return item;
@@ -2107,11 +2104,6 @@ async function ensureDailyLeaderboard() {
       renderFullLeaderboard();
     }
   }
-}
-
-async function refreshDailyLeaderboard() {
-  state.dailyScoresDateKey = "";
-  await ensureDailyLeaderboard();
 }
 
 function renderPath() {

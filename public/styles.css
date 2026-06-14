@@ -3490,6 +3490,25 @@ body.is-loading .game-wiki-link {
     font-size: 28px;
   }
 
+  :is(.history-screen, .leaderboard-screen) .history-heading {
+    align-items: flex-end;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  :is(.history-screen, .leaderboard-screen) .history-heading > div:first-child {
+    flex: 1 1 auto;
+  }
+
+  :is(.history-screen, .leaderboard-screen) .history-actions {
+    align-items: flex-end;
+    flex: 0 0 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+
   .history-list > li {
     grid-template-columns: 1fr;
   }
@@ -3541,6 +3560,11 @@ body.is-loading .game-wiki-link {
   .secondary-button,
   .nickname-button {
     width: 100%;
+  }
+
+  :is(.history-screen, .leaderboard-screen) .history-actions :is(.primary-button, .secondary-button) {
+    width: auto;
+    white-space: nowrap;
   }
 
   .daily-score-form div {
