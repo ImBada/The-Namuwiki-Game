@@ -837,12 +837,6 @@ function parseHtmlAttributes(tag) {
 }
 
 function findArticleContentStart(html) {
-  const contentMatch = html.match(/<div\b[^>]*class=(["'])[^"']*\bI5dX7KDP\b[^"']*\1[^>]*>/i);
-  if (contentMatch?.index !== undefined) return contentMatch.index;
-
-  const espejoContentMatch = html.match(/<div\b[^>]*class=(["'])[^"']*\bwL2ljWQc\b[^"']*\1[^>]*>/i);
-  if (espejoContentMatch?.index !== undefined) return espejoContentMatch.index;
-
   const structuralContentStart = findArticleContentStartByMarkers(html);
   if (structuralContentStart >= 0) return structuralContentStart;
 
@@ -901,6 +895,9 @@ function looksLikeArticleContent(html) {
   if (headingCount > 0 && paragraphCount > 0) return true;
   if (hasToc && paragraphCount > 1) return true;
   if (paragraphCount >= 3 && textLength >= 80) return true;
+  if (paragraphCount > 0 && /<a\b[^>]*href\s*=\s*(["'])(?:(?:https?:)?\/\/namu\.wiki)?\/w\//i.test(html)) {
+    return true;
+  }
   return tableCount > 0 && paragraphCount > 1 && textLength >= 80;
 }
 

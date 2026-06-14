@@ -250,11 +250,11 @@ test("does not allow source HTML to forge playable link runtime attributes", () 
   assert.doesNotMatch(html, /data-game-title="가짜"|wiki-link-disabled/);
 });
 
-test("extracts the article body when a NamuWiki content container exists", () => {
+test("extracts the article body from stable wiki content markers", () => {
   const html = `
     <main>
       <div class="noise"><a href="/w/%EC%9E%A1%EC%9D%8C">잡음</a></div>
-      <div class="I5dX7KDP _7cFKdWbY">
+      <div class="generated-content generated-wrapper">
         <div class="wiki-paragraph"><a href="/w/%ED%95%9C%EA%B8%80">한글</a></div>
       </div>
       <footer>footer</footer>
@@ -266,12 +266,12 @@ test("extracts the article body when a NamuWiki content container exists", () =>
   assert.doesNotMatch(articleHtml, /잡음|footer/);
 });
 
-test("extracts the article body from the current NamuWiki skin content wrapper", () => {
+test("extracts the article body from a compact wiki content wrapper", () => {
   const html = `
     <main>
       <nav><a href="/w/%EC%B5%9C%EA%B7%BC%20%EB%B3%80%EA%B2%BD">최근 변경</a></nav>
-      <div class="wL2ljWQc _2hRbcvxd">
-        <div>한국 영화에 대해 서술한 문서.</div>
+      <div class="generated-skin-content">
+        <div class="wiki-paragraph">한국 영화에 대해 서술한 문서.</div>
         <a href="/w/%EC%98%81%ED%99%94">영화</a>
       </div>
       <script>window.__NUXT__ = "large payload";</script>

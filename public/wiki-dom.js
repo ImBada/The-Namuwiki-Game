@@ -94,7 +94,7 @@ function foldDefaultCollapsedBrowseSection(root) {
   if (!heading || heading.closest(".wiki-section-folding")) return;
 
   const level = Number(heading.tagName.slice(1));
-  const contentRoot = heading.closest(".I5dX7KDP") || root;
+  const contentRoot = findArticleContentRoot(heading, root);
   const headingBlock = childWithinRoot(heading, contentRoot);
   if (headingBlock === contentRoot) return;
   const details = document.createElement("details");
@@ -169,6 +169,25 @@ function childWithinRoot(node, root) {
     child = child.parentElement;
   }
   return child;
+}
+
+function findArticleContentRoot(node, fallbackRoot) {
+  let best = fallbackRoot;
+  let current = node.parentElement;
+  while (current && current !== fallbackRoot) {
+    if (looksLikeArticleContentRoot(current)) best = current;
+    current = current.parentElement;
+  }
+  return best;
+}
+
+function looksLikeArticleContentRoot(element) {
+  if (!(element instanceof HTMLElement)) return false;
+  const markerCount = element.querySelectorAll(
+    ".wiki-paragraph, .wiki-heading, .wiki-macro-toc, .toc-item, .wiki-table, .footnote-list"
+  ).length;
+  if (markerCount < 2) return false;
+  return !element.querySelector("nav, header, footer");
 }
 
 function containsHeadingAtOrAboveLevel(node, level) {

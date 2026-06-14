@@ -64,3 +64,12 @@ test("history screen exposes tutorial auto-skip option", async () => {
   assert.match(script, /removeLocalStorage\(ROUND_LOADING_SEEN_STORAGE_KEY\)/);
   assert.match(styles, /\.tutorial-skip-toggle/);
 });
+
+test("horizontal folding navboxes override inline display while closed", async () => {
+  const styles = await readFile(join(process.cwd(), "public", "styles.css"), "utf8");
+
+  assert.match(
+    styles,
+    /\.wiki-horizontal-folding-navbox:not\(:has\(\.wiki-horizontal-folding-details\[open\]\)\) > \.wiki-horizontal-folding-tab\s*\{[^}]*display:\s*contents !important;/s
+  );
+});

@@ -2004,8 +2004,54 @@ body.is-loading .game-wiki-link {
   overflow: hidden;
 }
 
+.wiki-article .wiki-horizontal-folding-navbox:has(
+    > div:is(
+        [style*="color:#ffffff"],
+        [style*="color: #ffffff"],
+        [style*="color:#fff"],
+        [style*="color: #fff"],
+        [style*="color:white"],
+        [style*="color: white"],
+        [style*="color:rgb(255, 255, 255)"],
+        [style*="color: rgb(255, 255, 255)"],
+        [style*="color:rgb(255,255,255)"],
+        [style*="color: rgb(255,255,255)"]
+      )
+      > details.wiki-folding
+  ) {
+  width: min(800px, 100%);
+  margin: 10px auto 16px;
+  border-radius: 8px;
+  background: linear-gradient(
+    180deg,
+    var(--wiki-navbox-accent-start, #ff9e23),
+    var(--wiki-navbox-accent-end, #ff4703)
+  );
+  color: #fff;
+  padding: 28px 24px 0;
+}
+
 .wiki-article .wiki-horizontal-folding-navbox > .wiki-horizontal-folding-heading {
   grid-column: 1 / -1;
+}
+
+.wiki-article .wiki-horizontal-folding-navbox:has(
+    > div:is(
+        [style*="color:#ffffff"],
+        [style*="color: #ffffff"],
+        [style*="color:#fff"],
+        [style*="color: #fff"],
+        [style*="color:white"],
+        [style*="color: white"],
+        [style*="color:rgb(255, 255, 255)"],
+        [style*="color: rgb(255, 255, 255)"],
+        [style*="color:rgb(255,255,255)"],
+        [style*="color: rgb(255,255,255)"]
+      )
+      > details.wiki-folding
+  )
+  > .wiki-horizontal-folding-heading {
+  text-align: center;
 }
 
 .wiki-article .wiki-horizontal-folding-navbox > .wiki-horizontal-folding-heading > div[style*="height"] {
@@ -2025,6 +2071,10 @@ body.is-loading .game-wiki-link {
   display: contents;
 }
 
+.wiki-article .wiki-horizontal-folding-navbox:not(:has(.wiki-horizontal-folding-details[open])) > .wiki-horizontal-folding-tab {
+  display: contents !important;
+}
+
 .wiki-article .wiki-horizontal-folding-details > summary {
   grid-column: var(--folding-tab-column);
   grid-row: 2;
@@ -2039,6 +2089,27 @@ body.is-loading .game-wiki-link {
   line-height: 1.2;
   list-style: none;
   text-align: center;
+}
+
+.wiki-article .wiki-horizontal-folding-navbox:has(
+    > div:is(
+        [style*="color:#ffffff"],
+        [style*="color: #ffffff"],
+        [style*="color:#fff"],
+        [style*="color: #fff"],
+        [style*="color:white"],
+        [style*="color: white"],
+        [style*="color:rgb(255, 255, 255)"],
+        [style*="color: rgb(255, 255, 255)"],
+        [style*="color:rgb(255,255,255)"],
+        [style*="color: rgb(255,255,255)"]
+      )
+      > details.wiki-folding
+  )
+  .wiki-horizontal-folding-details
+  > summary {
+  color: inherit;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
 }
 
 .wiki-article .wiki-horizontal-folding-details > summary::marker,
