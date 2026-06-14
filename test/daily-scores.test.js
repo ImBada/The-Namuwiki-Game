@@ -109,7 +109,7 @@ test("returns the submitted daily score rank", async () => {
   assert.equal(Object.hasOwn(submitted.score, "roundTokenHash"), false);
 });
 
-test("ranks same-click daily scores by first completion before elapsed time", async () => {
+test("ranks the same-click first completion first, then the rest by elapsed time", async () => {
   const { submitDailyScore } = await importDailyScores("same-click-first-completion");
   const now = Date.now();
 
@@ -123,6 +123,19 @@ test("ranks same-click daily scores by first completion before elapsed time", as
     }),
     clickCount: 5,
     elapsedSeconds: 600,
+    pathLength: 6
+  }, { now });
+
+  const middleMedium = await submitDailyScore({
+    nickname: "중간에 보통 사람",
+    roundId: signedRoundId({
+      path: ["시작", "ㄱ", "ㄴ", "ㄷ", "ㄹ", "목표"],
+      clickCount: 5,
+      startedAt: now - 45 * 60 * 1000,
+      completedAt: now - 43 * 60 * 1000
+    }),
+    clickCount: 5,
+    elapsedSeconds: 120,
     pathLength: 6
   }, { now });
 
@@ -140,9 +153,11 @@ test("ranks same-click daily scores by first completion before elapsed time", as
   }, { now });
 
   assert.equal(earlySlow.rank, 1);
+  assert.equal(middleMedium.rank, 2);
   assert.equal(lateFast.rank, 2);
   assert.equal(lateFast.scores[0].nickname, "먼저 찾은 사람");
   assert.equal(lateFast.scores[1].nickname, "나중에 빠른 사람");
+  assert.equal(lateFast.scores[2].nickname, "중간에 보통 사람");
 });
 
 test("rejects scores without a valid signed round token", async () => {

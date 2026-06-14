@@ -2112,7 +2112,7 @@ async function ensureDailyLeaderboard() {
   renderDailyLeaderboard();
   try {
     const data = await fetchJson("/api/daily-scores");
-    state.dailyScores = Array.isArray(data.scores) ? data.scores.sort(compareScores) : [];
+    state.dailyScores = Array.isArray(data.scores) ? sortScores(data.scores) : [];
     state.dailyScoresDateKey = data.dateKey || dateKey;
   } catch {
     state.dailyScores = [];
@@ -2707,13 +2707,47 @@ function drawRightAlignedFittedText(ctx, text, rightX, y, maxWidth) {
   ctx.fillText(fitted, rightX - ctx.measureText(fitted).width, y);
 }
 
-function compareScores(a, b) {
+function sortScores(scores) {
+  const firstCompletedScores = collectFirstCompletedScores(scores);
+  return [...scores].sort((a, b) => compareScores(a, b, firstCompletedScores));
+}
+
+function collectFirstCompletedScores(scores) {
+  const firstByClickCount = new Map();
+  for (const score of scores) {
+    const clickCount = score.clickCount || 0;
+    const currentFirst = firstByClickCount.get(clickCount);
+    if (!currentFirst || compareFirstCompletedScore(score, currentFirst) < 0) {
+      firstByClickCount.set(clickCount, score);
+    }
+  }
+  return new Set(firstByClickCount.values());
+}
+
+function compareFirstCompletedScore(a, b) {
   return (
-    (a.clickCount || 0) - (b.clickCount || 0) ||
     scoreCompletedAtTimestamp(a.completedAt) - scoreCompletedAtTimestamp(b.completedAt) ||
     (a.elapsedSeconds || 0) - (b.elapsedSeconds || 0) ||
     (a.pathLength || 0) - (b.pathLength || 0) ||
-    String(a.completedAt || "").localeCompare(String(b.completedAt || ""))
+    String(a.completedAt || "").localeCompare(String(b.completedAt || "")) ||
+    String(a.id || "").localeCompare(String(b.id || ""))
+  );
+}
+
+function compareScores(a, b, firstCompletedScores) {
+  const clickCountDifference = (a.clickCount || 0) - (b.clickCount || 0);
+  if (clickCountDifference !== 0) return clickCountDifference;
+
+  const aFirstCompleted = firstCompletedScores.has(a);
+  const bFirstCompleted = firstCompletedScores.has(b);
+  if (aFirstCompleted !== bFirstCompleted) return aFirstCompleted ? -1 : 1;
+
+  return (
+    (a.elapsedSeconds || 0) - (b.elapsedSeconds || 0) ||
+    (a.pathLength || 0) - (b.pathLength || 0) ||
+    scoreCompletedAtTimestamp(a.completedAt) - scoreCompletedAtTimestamp(b.completedAt) ||
+    String(a.completedAt || "").localeCompare(String(b.completedAt || "")) ||
+    String(a.id || "").localeCompare(String(b.id || ""))
   );
 }
 
@@ -2749,7 +2783,7 @@ async function submitDailyScoreFromDialog(event) {
         pathLength: (state.round.path || []).length
       })
     });
-    state.dailyScores = Array.isArray(data.scores) ? data.scores.sort(compareScores) : [];
+    state.dailyScores = Array.isArray(data.scores) ? sortScores(data.scores) : [];
     state.dailyScoresDateKey = data.dateKey || todayDateKey();
     renderDailyLeaderboard();
     renderDailyRank(data.rank, data.scores?.length || 0);
