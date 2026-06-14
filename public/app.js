@@ -16,8 +16,7 @@ import {
 const HISTORY_STORAGE_KEY = "namuwiki-game:play-history";
 const SPECIFIED_GAMES_STORAGE_KEY = "namuwiki-game:specified-games";
 const ROUND_LOADING_SEEN_STORAGE_KEY = "namuwiki-game:round-loading-seen";
-const HISTORY_LIMIT = 50;
-const VISIBLE_HISTORY_LIMIT = 30;
+const HISTORY_PAGE_SIZE = 30;
 const SPECIFIED_GAMES_LIMIT = 5;
 const MULTIPLAYER_POLL_MS = 1000;
 const SHORTCUT_WARNING_MS = 1800;
@@ -39,6 +38,7 @@ const state = {
   dailyScoresDateKey: "",
   hasStarted: false,
   homeView: "home",
+  historyPage: 1,
   goalPreviewOpen: false,
   goalPreviewRenderKey: "",
   roundStartedAt: 0,
@@ -71,6 +71,10 @@ const els = {
   historyBackButton: document.querySelector("#historyBackButton"),
   clearHistoryButton: document.querySelector("#clearHistoryButton"),
   historyList: document.querySelector("#historyList"),
+  historyPagination: document.querySelector("#historyPagination"),
+  historyPrevButton: document.querySelector("#historyPrevButton"),
+  historyNextButton: document.querySelector("#historyNextButton"),
+  historyPageStatus: document.querySelector("#historyPageStatus"),
   tutorialAutoSkipToggle: document.querySelector("#tutorialAutoSkipToggle"),
   storageNotes: document.querySelectorAll("[data-storage-note]"),
   dailyDateText: document.querySelector("#dailyDateText"),
@@ -192,6 +196,8 @@ els.dailyChallengeButton.addEventListener("click", startDailyChallenge);
 els.historyButton.addEventListener("click", showHistory);
 els.historyBackButton.addEventListener("click", showHomeBoard);
 els.clearHistoryButton.addEventListener("click", clearHistory);
+els.historyPrevButton.addEventListener("click", () => changeHistoryPage(-1));
+els.historyNextButton.addEventListener("click", () => changeHistoryPage(1));
 els.tutorialAutoSkipToggle.addEventListener("change", toggleTutorialAutoSkip);
 els.homeButton.addEventListener("click", returnHome);
 els.newRoundButton.addEventListener("click", handleRoundAction);
@@ -861,7 +867,9 @@ function render() {
   if (!state.hasStarted && state.homeView === "home") {
     renderHomeChallenge();
   }
-  renderHistory();
+  if (!state.hasStarted && state.homeView === "history") {
+    renderHistory();
+  }
   renderRoundAction();
   renderTimer();
   renderStatus();
@@ -1047,6 +1055,7 @@ function usesHoverGoalPreview() {
 
 function showHistory() {
   state.homeView = "history";
+  state.historyPage = 1;
   stopTimer();
   render();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1838,9 +1847,21 @@ function renderDailyLeaderboard() {
 }
 
 function renderHistory() {
-  const history = readHistory().slice(0, VISIBLE_HISTORY_LIMIT);
+  const history = readHistory();
+  const totalPages = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
+  state.historyPage = Math.min(Math.max(1, state.historyPage), totalPages);
+  const pageStart = (state.historyPage - 1) * HISTORY_PAGE_SIZE;
+  const visibleHistory = history.slice(pageStart, pageStart + HISTORY_PAGE_SIZE);
+
   els.clearHistoryButton.disabled = history.length === 0;
   els.tutorialAutoSkipToggle.checked = isTutorialAutoSkipEnabled();
+  els.historyPagination.hidden = history.length === 0;
+  els.historyPrevButton.disabled = state.historyPage <= 1;
+  els.historyNextButton.disabled = state.historyPage >= totalPages || history.length === 0;
+  els.historyPageStatus.textContent =
+    history.length === 0
+      ? "0개 기록"
+      : `${pageStart + 1}-${pageStart + visibleHistory.length} / ${history.length}`;
 
   if (history.length === 0) {
     const item = document.createElement("li");
@@ -1851,7 +1872,7 @@ function renderHistory() {
   }
 
   els.historyList.replaceChildren(
-    ...history.map((record) => {
+    ...visibleHistory.map((record) => {
       const item = document.createElement("li");
       const main = document.createElement("div");
       const topLine = document.createElement("div");
@@ -1905,6 +1926,11 @@ function renderHistory() {
   );
 }
 
+function changeHistoryPage(delta) {
+  state.historyPage += delta;
+  renderHistory();
+}
+
 function isTutorialAutoSkipEnabled() {
   return readLocalStorage(ROUND_LOADING_SEEN_STORAGE_KEY) === "1";
 }
@@ -1937,7 +1963,7 @@ function saveCompletedRoundHistory() {
   const nextHistory = [
     record,
     ...readHistory().filter((item) => item.roundId !== record.roundId)
-  ].slice(0, HISTORY_LIMIT);
+  ];
   try {
     writeHistory(nextHistory);
     state.savedHistoryRoundId = state.round.id;

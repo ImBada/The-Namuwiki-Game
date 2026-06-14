@@ -65,6 +65,21 @@ test("history screen exposes tutorial auto-skip option", async () => {
   assert.match(styles, /\.tutorial-skip-toggle/);
 });
 
+test("history screen paginates local records without a storage cap", async () => {
+  const html = await readFile(join(process.cwd(), "public", "index.html"), "utf8");
+  const script = await readFile(join(process.cwd(), "public", "app.js"), "utf8");
+  const styles = await readFile(join(process.cwd(), "public", "styles.css"), "utf8");
+
+  assert.match(html, /id="historyPrevButton"/);
+  assert.match(html, /id="historyPageStatus"/);
+  assert.match(html, /id="historyNextButton"/);
+  assert.match(script, /HISTORY_PAGE_SIZE = 30/);
+  assert.match(script, /changeHistoryPage/);
+  assert.doesNotMatch(script, /HISTORY_LIMIT/);
+  assert.doesNotMatch(script, /\.slice\(0, HISTORY_/);
+  assert.match(styles, /\.history-pagination/);
+});
+
 test("horizontal folding navboxes override inline display while closed", async () => {
   const styles = await readFile(join(process.cwd(), "public", "styles.css"), "utf8");
 

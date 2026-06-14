@@ -439,6 +439,22 @@ a:focus-visible {
   white-space: nowrap;
 }
 
+.history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 44px;
+}
+
+.history-pagination span {
+  min-width: 120px;
+  color: #b8d6cf;
+  font-size: 13px;
+  font-weight: 850;
+  text-align: center;
+}
+
 .daily-card,
 .leaderboard-card {
   position: relative;
