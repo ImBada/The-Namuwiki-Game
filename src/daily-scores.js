@@ -50,6 +50,7 @@ export async function submitDailyScore(body, options = {}) {
     clickCount: completedRound.clickCount,
     elapsedSeconds,
     pathLength: completedRound.pathLength,
+    path: completedRound.path,
     completedAt: new Date(completedAt).toISOString(),
     roundTokenHash
   };
@@ -162,6 +163,7 @@ function normalizeDailyScores(scores) {
         clickCount: clampInteger(score.clickCount, 0, 999),
         elapsedSeconds: clampInteger(score.elapsedSeconds, 0, 24 * 60 * 60),
         pathLength: clampInteger(score.pathLength, 1, 1000),
+        path: normalizeScorePath(score.path, score.pathLength),
         completedAt: String(score.completedAt || ""),
         roundTokenHash:
           normalizeRoundTokenHash(score.roundTokenHash) ||
@@ -177,7 +179,7 @@ function publicDailyScores(scores) {
 }
 
 function publicDailyScore(score) {
-  const { roundTokenHash, ...publicScore } = score;
+  const { path, roundTokenHash, ...publicScore } = score;
   return publicScore;
 }
 
@@ -218,6 +220,15 @@ function normalizeNickname(value) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 20);
+}
+
+function normalizeScorePath(path, pathLength) {
+  if (!Array.isArray(path)) return [];
+  const maxLength = clampInteger(pathLength, 1, 1000);
+  return path
+    .slice(0, maxLength)
+    .map((title) => String(title || "").trim())
+    .filter(Boolean);
 }
 
 function clampInteger(value, min, max) {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -210,6 +210,34 @@ test("uses signed completion time instead of trusting submitted elapsed time", a
 
   assert.equal(submitted.score.elapsedSeconds, 20);
   assert.equal(submitted.score.completedAt, new Date(completedAt).toISOString());
+});
+
+test("stores verified daily path without exposing it publicly", async () => {
+  const { getDailyLeaderboard, submitDailyScore } = await importDailyScores("stored-path");
+  const dateKey = todayDateKey();
+  const now = Date.now();
+  const path = ["시작", "중간", "목표"];
+
+  const submitted = await submitDailyScore({
+    nickname: "경로 저장",
+    roundId: signedRoundId({
+      path,
+      clickCount: 2,
+      startedAt: now - 12000,
+      completedAt: now
+    }),
+    clickCount: 2,
+    elapsedSeconds: 12,
+    pathLength: 3
+  }, { now });
+
+  const store = JSON.parse(await readFile(join(process.env.DATA_DIR, "daily-scores.json"), "utf8"));
+  const leaderboard = await getDailyLeaderboard();
+
+  assert.deepEqual(store[dateKey][0].path, path);
+  assert.equal(Object.hasOwn(submitted.score, "path"), false);
+  assert.equal(Object.hasOwn(submitted.scores[0], "path"), false);
+  assert.equal(Object.hasOwn(leaderboard.scores[0], "path"), false);
 });
 
 test("uses server receipt time for legacy completed daily tokens", async () => {
