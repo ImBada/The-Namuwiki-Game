@@ -215,7 +215,8 @@ a:focus-visible {
   text-align: center;
 }
 
-.history-screen {
+.history-screen,
+.leaderboard-screen {
   display: grid;
   gap: 16px;
   border: 1px solid var(--hud-line);
@@ -285,6 +286,64 @@ a:focus-visible {
 .history-actions {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+.leaderboard-heading-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.leaderboard-full-button {
+  min-height: 30px;
+  border: 1px solid rgba(120, 255, 226, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #87fff0;
+  cursor: pointer;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.leaderboard-full-button:hover {
+  border-color: rgba(120, 255, 226, 0.42);
+  background: rgba(0, 194, 173, 0.14);
+}
+
+.leaderboard-full-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.leaderboard-full-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(120, 255, 226, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 12px 14px;
+}
+
+.leaderboard-full-meta span {
+  color: #95bbb1;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.leaderboard-full-meta strong {
+  color: #87fff0;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.leaderboard-full-list {
   gap: 10px;
 }
 
@@ -3416,7 +3475,8 @@ body.is-loading .game-wiki-link {
     flex-direction: column;
   }
 
-  .history-screen {
+  .history-screen,
+  .leaderboard-screen {
     padding: 18px;
   }
 
@@ -3432,6 +3492,23 @@ body.is-loading .game-wiki-link {
 
   .history-list > li {
     grid-template-columns: 1fr;
+  }
+
+  .leaderboard-heading {
+    align-items: flex-start;
+  }
+
+  .leaderboard-heading-actions {
+    flex-shrink: 0;
+  }
+
+  .leaderboard-list li {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .leaderboard-list em {
+    grid-column: 2;
+    white-space: normal;
   }
 
   .history-top-line,

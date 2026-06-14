@@ -12,6 +12,7 @@ const DATA_DIR = resolve(
 );
 const DAILY_SCORES_FILE = join(DATA_DIR, "daily-scores.json");
 const USED_ROUND_TOKEN_HASHES_KEY = "_usedRoundTokenHashes";
+const DAILY_SCORE_LIMIT = 100;
 const ROUND_SECRET = getRoundSecret();
 
 let dailyScoreWriteQueue = Promise.resolve();
@@ -21,7 +22,7 @@ export async function getDailyLeaderboard() {
   const store = await readDailyScoreStore();
   return {
     dateKey,
-    scores: publicDailyScores(normalizeDailyScores(scoreStoreDateEntry(store, dateKey)).slice(0, 20))
+    scores: publicDailyScores(normalizeDailyScores(scoreStoreDateEntry(store, dateKey)).slice(0, DAILY_SCORE_LIMIT))
   };
 }
 
@@ -67,7 +68,7 @@ export async function submitDailyScore(body, options = {}) {
     const sortedScores = [...existingScores, score].sort(compareScores);
     const rank = sortedScores.findIndex((item) => item.id === score.id) + 1;
     const todayOnlyStore = {
-      [dateKey]: sortedScores.slice(0, 100),
+      [dateKey]: sortedScores.slice(0, DAILY_SCORE_LIMIT),
       [USED_ROUND_TOKEN_HASHES_KEY]: {
         [dateKey]: [...usedRoundTokenHashes]
       }
@@ -75,7 +76,7 @@ export async function submitDailyScore(body, options = {}) {
     await writeDailyScoreStore(todayOnlyStore);
     return {
       rank,
-      scores: sortedScores.slice(0, 20)
+      scores: sortedScores.slice(0, DAILY_SCORE_LIMIT)
     };
   });
 

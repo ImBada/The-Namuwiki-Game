@@ -63,6 +63,7 @@ const state = {
 const els = {
   homeScreen: document.querySelector("#homeScreen"),
   homeBoard: document.querySelector("#homeBoard"),
+  leaderboardScreen: document.querySelector("#leaderboardScreen"),
   historyScreen: document.querySelector("#historyScreen"),
   startGameButton: document.querySelector("#startGameButton"),
   multiplayerButton: document.querySelector("#multiplayerButton"),
@@ -83,7 +84,13 @@ const els = {
   dailyGoalTitle: document.querySelector("#dailyGoalTitle"),
   dailyPreviewStatus: document.querySelector("#dailyPreviewStatus"),
   leaderboardScope: document.querySelector("#leaderboardScope"),
+  leaderboardFullButton: document.querySelector("#leaderboardFullButton"),
+  leaderboardBackButton: document.querySelector("#leaderboardBackButton"),
+  leaderboardRefreshButton: document.querySelector("#leaderboardRefreshButton"),
+  leaderboardFullDate: document.querySelector("#leaderboardFullDate"),
+  leaderboardFullCount: document.querySelector("#leaderboardFullCount"),
   dailyLeaderboard: document.querySelector("#dailyLeaderboard"),
+  dailyLeaderboardFull: document.querySelector("#dailyLeaderboardFull"),
   gameBoard: document.querySelector(".game-board"),
   nicknameButtons: document.querySelectorAll("[data-nickname-button]"),
   nicknameLabels: document.querySelectorAll("[data-nickname-label]"),
@@ -195,6 +202,9 @@ els.multiplayerButton.addEventListener("click", openMultiplayerDialog);
 els.dailyChallengeButton.addEventListener("click", startDailyChallenge);
 els.historyButton.addEventListener("click", showHistory);
 els.historyBackButton.addEventListener("click", showHomeBoard);
+els.leaderboardFullButton.addEventListener("click", showFullLeaderboard);
+els.leaderboardBackButton.addEventListener("click", showHomeBoard);
+els.leaderboardRefreshButton.addEventListener("click", refreshDailyLeaderboard);
 els.clearHistoryButton.addEventListener("click", clearHistory);
 els.historyPrevButton.addEventListener("click", () => changeHistoryPage(-1));
 els.historyNextButton.addEventListener("click", () => changeHistoryPage(1));
@@ -840,6 +850,7 @@ function render() {
   els.gameBoard.hidden = !state.hasStarted;
   renderRoundLoading();
   els.homeBoard.hidden = state.homeView !== "home";
+  els.leaderboardScreen.hidden = state.homeView !== "leaderboard";
   els.historyScreen.hidden = state.homeView !== "history";
   for (const note of els.storageNotes) {
     note.hidden = state.homeView !== "home";
@@ -866,6 +877,10 @@ function render() {
   renderPath();
   if (!state.hasStarted && state.homeView === "home") {
     renderHomeChallenge();
+  }
+  if (!state.hasStarted && state.homeView === "leaderboard") {
+    renderFullLeaderboard();
+    ensureDailyLeaderboard();
   }
   if (!state.hasStarted && state.homeView === "history") {
     renderHistory();
@@ -1056,6 +1071,13 @@ function usesHoverGoalPreview() {
 function showHistory() {
   state.homeView = "history";
   state.historyPage = 1;
+  stopTimer();
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showFullLeaderboard() {
+  state.homeView = "leaderboard";
   stopTimer();
   render();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1821,6 +1843,7 @@ async function ensureDailyChallengePreview() {
 
 function renderDailyLeaderboard() {
   const scores = state.dailyScoresDateKey === todayDateKey() ? state.dailyScores.slice(0, 5) : [];
+  els.leaderboardFullButton.disabled = state.dailyScoresLoading;
   if (scores.length === 0) {
     const item = document.createElement("li");
     item.className = "leaderboard-empty";
@@ -1830,20 +1853,52 @@ function renderDailyLeaderboard() {
   }
 
   els.dailyLeaderboard.replaceChildren(
-    ...scores.map((score, index) => {
-      const item = document.createElement("li");
-      const rank = document.createElement("span");
-      const title = document.createElement("strong");
-      const meta = document.createElement("em");
-
-      rank.textContent = String(index + 1);
-      title.textContent = score.nickname || "익명";
-      meta.textContent = `${score.clickCount} 클릭 · ${formatSeconds(score.elapsedSeconds || 0)}`;
-
-      item.append(rank, title, meta);
-      return item;
-    })
+    ...scores.map((score, index) => createLeaderboardItem(score, index))
   );
+}
+
+function renderFullLeaderboard() {
+  const scores = state.dailyScoresDateKey === todayDateKey() ? state.dailyScores : [];
+  els.leaderboardFullDate.textContent = todayDisplayDate();
+  els.leaderboardFullCount.textContent = `${scores.length}명`;
+  els.leaderboardRefreshButton.disabled = state.dailyScoresLoading;
+
+  if (scores.length === 0) {
+    const item = document.createElement("li");
+    item.className = "leaderboard-empty";
+    item.textContent = state.dailyScoresLoading ? "순위표를 불러오는 중입니다." : "아직 기록이 없습니다.";
+    els.dailyLeaderboardFull.replaceChildren(item);
+    return;
+  }
+
+  els.dailyLeaderboardFull.replaceChildren(
+    ...scores.map((score, index) => createLeaderboardItem(score, index, { showCompletedAt: true }))
+  );
+}
+
+function createLeaderboardItem(score, index, options = {}) {
+  const item = document.createElement("li");
+  const rank = document.createElement("span");
+  const title = document.createElement("strong");
+  const meta = document.createElement("em");
+  const baseMeta = `${score.clickCount} 클릭 · ${formatSeconds(score.elapsedSeconds || 0)}`;
+  const completedAt = options.showCompletedAt ? formatLeaderboardCompletedAt(score.completedAt) : "";
+
+  rank.textContent = String(index + 1);
+  title.textContent = score.nickname || "익명";
+  meta.textContent = options.showCompletedAt && completedAt ? `${baseMeta} · ${completedAt}` : baseMeta;
+
+  item.append(rank, title, meta);
+  return item;
+}
+
+function formatLeaderboardCompletedAt(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
 }
 
 function renderHistory() {
@@ -2048,7 +2103,15 @@ async function ensureDailyLeaderboard() {
   } finally {
     state.dailyScoresLoading = false;
     renderDailyLeaderboard();
+    if (state.homeView === "leaderboard") {
+      renderFullLeaderboard();
+    }
   }
+}
+
+async function refreshDailyLeaderboard() {
+  state.dailyScoresDateKey = "";
+  await ensureDailyLeaderboard();
 }
 
 function renderPath() {

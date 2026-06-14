@@ -72,11 +72,31 @@
             <section class="leaderboard-card" aria-labelledby="leaderboardTitle">
               <div class="leaderboard-heading">
                 <h3 id="leaderboardTitle">오늘의 순위표</h3>
-                <span id="leaderboardScope">오늘</span>
+                <div class="leaderboard-heading-actions">
+                  <span id="leaderboardScope">오늘</span>
+                  <button id="leaderboardFullButton" class="leaderboard-full-button" type="button">전체 보기</button>
+                </div>
               </div>
               <ol id="dailyLeaderboard" class="leaderboard-list"></ol>
             </section>
           </div>
+        </section>
+        <section id="leaderboardScreen" class="leaderboard-screen" aria-labelledby="leaderboardFullTitle" hidden>
+          <div class="history-heading">
+            <div>
+              <span class="home-kicker">DAILY CHALLENGE RANKING</span>
+              <h2 id="leaderboardFullTitle">오늘의 전체 순위</h2>
+            </div>
+            <div class="history-actions">
+              <button id="leaderboardRefreshButton" class="secondary-button" type="button">새로고침</button>
+              <button id="leaderboardBackButton" class="primary-button" type="button">메인으로</button>
+            </div>
+          </div>
+          <div class="leaderboard-full-meta">
+            <span id="leaderboardFullDate">오늘</span>
+            <strong id="leaderboardFullCount">0명</strong>
+          </div>
+          <ol id="dailyLeaderboardFull" class="leaderboard-list leaderboard-full-list"></ol>
         </section>
         <section id="historyScreen" class="history-screen" aria-labelledby="historyTitle" hidden>
           <div class="history-heading">
