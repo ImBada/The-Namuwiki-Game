@@ -60,7 +60,7 @@ export async function fetchJson(url, options) {
   const response = await fetch(url, options);
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
-    throw new Error("API가 JSON 대신 HTML을 반환했습니다. Vercel API 라우팅을 확인하세요.");
+    throw new Error("API가 JSON 대신 HTML을 반환했습니다. 서버 라우팅을 확인하세요.");
   }
   const payload = await response.json();
   if (!response.ok) {

@@ -1,7 +1,5 @@
 const LOCAL_ROUND_SECRET = "the-namuwiki-game-local-round-secret";
 const DEPLOYMENT_ENVIRONMENT_MARKERS = [
-  "VERCEL",
-  "VERCEL_ENV",
   "RAILWAY_ENVIRONMENT",
   "RAILWAY_PROJECT_ID",
   "RAILWAY_SERVICE_ID",

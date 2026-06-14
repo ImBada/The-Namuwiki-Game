@@ -6,8 +6,6 @@ let importCounter = 0;
 const ENV_KEYS = [
   "ROUND_SECRET",
   "NODE_ENV",
-  "VERCEL",
-  "VERCEL_ENV",
   "RAILWAY_ENVIRONMENT",
   "RAILWAY_PROJECT_ID",
   "RAILWAY_SERVICE_ID",
@@ -54,7 +52,7 @@ test("uses the local round secret outside deployment environments", async () => 
 });
 
 test("requires a round secret for deployment environment markers", async () => {
-  for (const marker of ["VERCEL", "RAILWAY_ENVIRONMENT", "NETLIFY", "AWS_EXECUTION_ENV"]) {
+  for (const marker of ["RAILWAY_ENVIRONMENT", "NETLIFY", "AWS_EXECUTION_ENV"]) {
     await withEnv({ [marker]: "1" }, async () => {
       const { getRoundSecret } = await importConfig(`deployment-${marker}`);
       assert.throws(
@@ -66,7 +64,7 @@ test("requires a round secret for deployment environment markers", async () => {
 });
 
 test("uses an explicit round secret in deployment environments", async () => {
-  await withEnv({ VERCEL: "1", ROUND_SECRET: " deployed-secret " }, async () => {
+  await withEnv({ RAILWAY_ENVIRONMENT: "production", ROUND_SECRET: " deployed-secret " }, async () => {
     const { getRoundSecret } = await importConfig("explicit");
     assert.equal(getRoundSecret(), "deployed-secret");
   });

@@ -58,8 +58,7 @@ const NAMU_FETCH_TIMEOUT_MS = Number.parseInt(
   10
 );
 const ROUND_SECRET = getRoundSecret();
-const ALLOW_SYNTHETIC_FALLBACK =
-  process.env.ALLOW_SYNTHETIC_FALLBACK === "1" || process.env.VERCEL === "1";
+const ALLOW_SYNTHETIC_FALLBACK = process.env.ALLOW_SYNTHETIC_FALLBACK === "1";
 
 const documentCache = new Map();
 const dailyRoundCache = new Map();

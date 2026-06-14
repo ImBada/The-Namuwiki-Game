@@ -36,21 +36,11 @@ npm test
 - `test/`: Node test runner coverage for NamuWiki parsing and round-quality logic.
 - `docs/`: planning notes, roadmap, and goal balancing rules.
 
-## Deploy to Vercel
+## Deploy to Railway
 
-The app is prepared for Vercel with:
-
-- Static files served from `public/` by `server.js`.
-- Vercel routes all requests to `server.js`, which serves both static assets
-  and `/api/*` JSON endpoints. There is no separate `api/` directory.
-- Signed round-state tokens, so `/api/click` does not depend on serverless
-  instance memory.
-- Multiplayer room and signaling APIs are intentionally disabled on
-  Vercel/serverless deployments. They use process-local `Map` state, which is
-  not shared or durable across serverless invocations.
-
-Deploy from the repository root with Vercel's default project settings. No build
-command is required. Leave the Output Directory setting empty/default.
+Railway is the deployment target for this app. Run a single long-lived app
+instance for multiplayer, because room and signaling state is stored in the Node
+process and is not shared across replicas or restarts.
 
 Environment variables:
 
@@ -58,18 +48,7 @@ Environment variables:
   and test default is provided, but production or deployment environments must
   set their own value or the server will refuse to start.
 - `ALLOW_SYNTHETIC_FALLBACK=1`: allows temporary synthetic articles when an
-  upstream request is rejected with 403. This is enabled automatically on Vercel.
-
-Document caching and generated daily challenge rounds are persistent only when
-the deployment provides a writable data directory. On platforms without durable
-writes, the app still keeps a bounded in-memory document cache for the current
-server process, but a daily challenge may be regenerated after a restart.
-
-## Deploy to Railway
-
-Railway is the recommended deployment target when multiplayer is needed. Run a
-single long-lived app instance for multiplayer, because room and signaling state
-is stored in the Node process and is not shared across replicas or restarts.
+  upstream request is rejected with 403.
 
 Railway containers do not keep normal app filesystem writes across redeploys.
 Daily challenge rounds are stored in `daily-rounds.json`, leaderboard data is

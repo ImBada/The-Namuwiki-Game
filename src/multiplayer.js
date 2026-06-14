@@ -10,7 +10,6 @@ const MAX_SIGNALS_PER_ROOM = Number.parseInt(
   10
 );
 const SERVERLESS_MULTIPLAYER_ENVIRONMENT_MARKERS = [
-  "VERCEL",
   "AWS_LAMBDA_FUNCTION_NAME",
   "AWS_EXECUTION_ENV",
   "NETLIFY",
@@ -259,7 +258,7 @@ function assertMultiplayerAvailable() {
   if (!isServerlessMultiplayerEnvironment()) return;
   throw httpError(
     503,
-    "멀티플레이어 API는 Vercel/serverless 배포에서 비활성화되어 있습니다."
+    "멀티플레이어 API는 서버리스 배포에서 비활성화되어 있습니다."
   );
 }
 
