@@ -209,10 +209,16 @@ function collectUsedRoundTokenHashes(store, dateKey, scores) {
 function compareScores(a, b) {
   return (
     (a.clickCount || 0) - (b.clickCount || 0) ||
+    scoreCompletedAtTimestamp(a.completedAt) - scoreCompletedAtTimestamp(b.completedAt) ||
     (a.elapsedSeconds || 0) - (b.elapsedSeconds || 0) ||
     (a.pathLength || 0) - (b.pathLength || 0) ||
     String(a.completedAt || "").localeCompare(String(b.completedAt || ""))
   );
+}
+
+function scoreCompletedAtTimestamp(value) {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
 }
 
 function normalizeNickname(value) {

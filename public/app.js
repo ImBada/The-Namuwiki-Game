@@ -1851,7 +1851,7 @@ function renderDailyLeaderboard() {
   }
 
   els.dailyLeaderboard.replaceChildren(
-    ...scores.map((score, index) => createLeaderboardItem(score, index))
+    ...scores.map((score, index) => createLeaderboardItem(score, index, scores))
   );
 }
 
@@ -1869,30 +1869,44 @@ function renderFullLeaderboard() {
   }
 
   els.dailyLeaderboardFull.replaceChildren(
-    ...scores.map((score, index) => createLeaderboardItem(score, index))
+    ...scores.map((score, index) => createLeaderboardItem(score, index, scores))
   );
 }
 
-function createLeaderboardItem(score, index) {
+function createLeaderboardItem(score, index, scores = []) {
   const item = document.createElement("li");
   const rank = document.createElement("span");
   const title = document.createElement("strong");
   const clicks = document.createElement("em");
   const elapsed = document.createElement("em");
   const completedAt = document.createElement("em");
+  const completedAtText = document.createElement("span");
 
   rank.className = "leaderboard-rank";
   clicks.className = "leaderboard-stat";
   elapsed.className = "leaderboard-stat";
   completedAt.className = "leaderboard-stat";
+  if (isFirstCompletedForClickCount(score, index, scores)) {
+    completedAtText.classList.add("leaderboard-first-completed");
+    completedAt.title = "같은 클릭 수에서 가장 먼저 달성한 기록입니다.";
+  }
   rank.textContent = String(index + 1);
   title.textContent = score.nickname || "익명";
   clicks.textContent = String(score.clickCount || 0);
   elapsed.textContent = formatSeconds(score.elapsedSeconds || 0);
-  completedAt.textContent = formatLeaderboardCompletedAt(score.completedAt) || "-";
+  completedAtText.textContent = formatLeaderboardCompletedAt(score.completedAt) || "-";
+  completedAt.append(completedAtText);
 
   item.append(rank, title, clicks, elapsed, completedAt);
   return item;
+}
+
+function isFirstCompletedForClickCount(score, index, scores) {
+  const clickCount = Number.parseInt(score?.clickCount, 10) || 0;
+  for (let i = 0; i < index; i += 1) {
+    if ((Number.parseInt(scores[i]?.clickCount, 10) || 0) === clickCount) return false;
+  }
+  return true;
 }
 
 function formatLeaderboardCompletedAt(value) {
@@ -2696,9 +2710,16 @@ function drawRightAlignedFittedText(ctx, text, rightX, y, maxWidth) {
 function compareScores(a, b) {
   return (
     (a.clickCount || 0) - (b.clickCount || 0) ||
+    scoreCompletedAtTimestamp(a.completedAt) - scoreCompletedAtTimestamp(b.completedAt) ||
     (a.elapsedSeconds || 0) - (b.elapsedSeconds || 0) ||
-    (a.pathLength || 0) - (b.pathLength || 0)
+    (a.pathLength || 0) - (b.pathLength || 0) ||
+    String(a.completedAt || "").localeCompare(String(b.completedAt || ""))
   );
+}
+
+function scoreCompletedAtTimestamp(value) {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
 }
 
 async function submitDailyScoreFromDialog(event) {

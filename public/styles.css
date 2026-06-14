@@ -755,6 +755,41 @@ a:focus-visible {
   white-space: nowrap;
 }
 
+.leaderboard-first-completed {
+  position: relative;
+  isolation: isolate;
+  display: inline-block;
+  color: #fff4c0;
+  text-shadow: 0 0 10px rgba(255, 217, 92, 0.46);
+}
+
+.leaderboard-first-completed::before {
+  position: absolute;
+  z-index: -1;
+  content: "";
+  pointer-events: none;
+  inset: 74% 0 0;
+  border-radius: 999px;
+  background:
+    linear-gradient(115deg, transparent 0 30%, rgba(255, 250, 197, 0.5) 45%, transparent 60%),
+    rgba(255, 191, 61, 0.24);
+  background-size: 220% 100%, 100% 100%;
+  box-shadow: 0 0 12px rgba(255, 191, 61, 0.2);
+  animation: leaderboardFirstCompletedGlow 2.8s ease-in-out infinite;
+}
+
+@keyframes leaderboardFirstCompletedGlow {
+  0%,
+  28% {
+    background-position: 140% 0, 0 0;
+  }
+
+  68%,
+  100% {
+    background-position: -80% 0, 0 0;
+  }
+}
+
 .leaderboard-list .leaderboard-empty {
   display: block;
   color: #95bbb1;
