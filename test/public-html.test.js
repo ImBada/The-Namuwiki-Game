@@ -80,13 +80,15 @@ test("history screen paginates local records without a storage cap", async () =>
   assert.match(styles, /\.history-pagination/);
 });
 
-test("full daily leaderboard labels completion time", async () => {
+test("daily leaderboards show labeled score and completion columns", async () => {
   const html = await readFile(join(process.cwd(), "public", "index.html"), "utf8");
   const script = await readFile(join(process.cwd(), "public", "app.js"), "utf8");
 
   assert.match(html, /id="dailyLeaderboardFull"/);
-  assert.match(script, /showCompletedAt: true/);
-  assert.match(script, /완료 \$\{completedAt\}/);
+  assert.match(html, /<span>클릭<\/span>/);
+  assert.match(html, /<span>기록<\/span>/);
+  assert.match(html, /<span>달성<\/span>/);
+  assert.match(script, /formatLeaderboardCompletedAt\(score\.completedAt\) \|\| "-"/);
 });
 
 test("horizontal folding navboxes override inline display while closed", async () => {

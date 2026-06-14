@@ -1869,23 +1869,29 @@ function renderFullLeaderboard() {
   }
 
   els.dailyLeaderboardFull.replaceChildren(
-    ...scores.map((score, index) => createLeaderboardItem(score, index, { showCompletedAt: true }))
+    ...scores.map((score, index) => createLeaderboardItem(score, index))
   );
 }
 
-function createLeaderboardItem(score, index, options = {}) {
+function createLeaderboardItem(score, index) {
   const item = document.createElement("li");
   const rank = document.createElement("span");
   const title = document.createElement("strong");
-  const meta = document.createElement("em");
-  const baseMeta = `${score.clickCount} 클릭 · ${formatSeconds(score.elapsedSeconds || 0)}`;
-  const completedAt = options.showCompletedAt ? formatLeaderboardCompletedAt(score.completedAt) : "";
+  const clicks = document.createElement("em");
+  const elapsed = document.createElement("em");
+  const completedAt = document.createElement("em");
 
+  rank.className = "leaderboard-rank";
+  clicks.className = "leaderboard-stat";
+  elapsed.className = "leaderboard-stat";
+  completedAt.className = "leaderboard-stat";
   rank.textContent = String(index + 1);
   title.textContent = score.nickname || "익명";
-  meta.textContent = options.showCompletedAt && completedAt ? `${baseMeta} · 완료 ${completedAt}` : baseMeta;
+  clicks.textContent = String(score.clickCount || 0);
+  elapsed.textContent = formatSeconds(score.elapsedSeconds || 0);
+  completedAt.textContent = formatLeaderboardCompletedAt(score.completedAt) || "-";
 
-  item.append(rank, title, meta);
+  item.append(rank, title, clicks, elapsed, completedAt);
   return item;
 }
 

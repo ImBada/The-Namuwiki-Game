@@ -654,11 +654,37 @@ a:focus-visible {
   list-style: none;
 }
 
+.leaderboard-columns,
 .leaderboard-list li {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-columns: 30px minmax(0, 1fr) 42px 58px 72px;
   align-items: center;
   gap: 10px;
+}
+
+.leaderboard-columns {
+  padding: 0 10px;
+  color: #95bbb1;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.leaderboard-columns span:nth-child(n + 3) {
+  text-align: right;
+}
+
+.leaderboard-columns span:first-child {
+  text-align: center;
+}
+
+.leaderboard-list li > :nth-child(5) {
+  border-left: 1px solid rgba(120, 255, 226, 0.2);
+  padding-left: 10px;
+}
+
+.leaderboard-list li {
   min-height: 42px;
   border: 1px solid rgba(120, 255, 226, 0.16);
   border-radius: 6px;
@@ -666,17 +692,35 @@ a:focus-visible {
   padding: 8px 10px;
 }
 
-.leaderboard-list li > span {
+.leaderboard-rank {
   display: grid;
   width: 24px;
   height: 24px;
   place-items: center;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--amber), #ff7a2e);
-  color: #211305;
+  background: rgba(185, 207, 201, 0.14);
+  color: #b8d6cf;
   font-size: 12px;
   font-weight: 900;
-  box-shadow: 0 0 16px rgba(255, 176, 46, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(185, 207, 201, 0.2);
+}
+
+.leaderboard-list li:nth-child(1) .leaderboard-rank {
+  background: linear-gradient(180deg, #ffe58a, #ffb02e);
+  color: #2a1903;
+  box-shadow: 0 0 16px rgba(255, 176, 46, 0.34);
+}
+
+.leaderboard-list li:nth-child(2) .leaderboard-rank {
+  background: linear-gradient(180deg, #f7fbff, #aab9c8);
+  color: #18212a;
+  box-shadow: 0 0 14px rgba(210, 225, 235, 0.24);
+}
+
+.leaderboard-list li:nth-child(3) .leaderboard-rank {
+  background: linear-gradient(180deg, #f4bd80, #b86a32);
+  color: #241104;
+  box-shadow: 0 0 14px rgba(219, 134, 65, 0.24);
 }
 
 .leaderboard-list strong {
@@ -688,11 +732,13 @@ a:focus-visible {
   white-space: nowrap;
 }
 
-.leaderboard-list em {
+.leaderboard-stat {
   color: #95bbb1;
   font-size: 12px;
   font-style: normal;
   font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
   white-space: nowrap;
 }
 
@@ -3521,13 +3567,26 @@ body.is-loading .game-wiki-link {
     flex-shrink: 0;
   }
 
+  .leaderboard-columns,
   .leaderboard-list li {
-    grid-template-columns: 30px minmax(0, 1fr);
+    grid-template-columns: 28px minmax(0, 1fr) 36px 50px 64px;
+    gap: 6px;
   }
 
-  .leaderboard-list em {
-    grid-column: 2;
-    white-space: normal;
+  .leaderboard-columns {
+    padding: 0 8px;
+  }
+
+  .leaderboard-list li {
+    padding: 8px;
+  }
+
+  .leaderboard-list li > :nth-child(5) {
+    padding-left: 6px;
+  }
+
+  .leaderboard-stat {
+    font-size: 11px;
   }
 
   .history-top-line,
