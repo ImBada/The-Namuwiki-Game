@@ -142,7 +142,9 @@ const GAME_RUNTIME_CLASS_NAMES = new Set([
 ]);
 const SAFE_ARTICLE_STYLE_PROPERTIES = new Set([
   "aspect-ratio",
+  "background",
   "background-color",
+  "background-image",
   "border",
   "border-bottom",
   "border-bottom-color",
@@ -173,6 +175,7 @@ const SAFE_ARTICLE_STYLE_PROPERTIES = new Set([
   "box-sizing",
   "caption-side",
   "color",
+  "display",
   "empty-cells",
   "font",
   "font-family",
@@ -216,6 +219,27 @@ const SAFE_ARTICLE_STYLE_PROPERTIES = new Set([
   "word-break",
   "word-spacing",
   "word-wrap"
+]);
+const SAFE_ARTICLE_DISPLAY_VALUES = new Set([
+  "block",
+  "contents",
+  "flex",
+  "grid",
+  "inline",
+  "inline-block",
+  "inline-flex",
+  "inline-grid",
+  "inline-table",
+  "list-item",
+  "table",
+  "table-caption",
+  "table-cell",
+  "table-column",
+  "table-column-group",
+  "table-footer-group",
+  "table-header-group",
+  "table-row",
+  "table-row-group"
 ]);
 
 export function normalizeTitle(title) {
@@ -647,7 +671,52 @@ function isSafeStyleDeclaration(declaration) {
     if (hasNegativeCssLength(decodedValue)) return false;
     if (/\bcalc\s*\(/i.test(decodedValue)) return false;
   }
-  return !dangerousPattern.test(decoded) && !compactDangerousPattern.test(compactDecoded);
+  if (dangerousPattern.test(decoded) || compactDangerousPattern.test(compactDecoded)) {
+    return false;
+  }
+  if (normalizedProperty === "display") {
+    return isSafeDisplayCssValue(decodedValue);
+  }
+  if (normalizedProperty === "background") {
+    return isSafeBackgroundCssValue(decodedValue);
+  }
+  if (normalizedProperty === "background-image") {
+    return isSafeBackgroundImageCssValue(decodedValue);
+  }
+  return true;
+}
+
+function isSafeDisplayCssValue(value) {
+  return SAFE_ARTICLE_DISPLAY_VALUES.has(normalizeCssValue(value));
+}
+
+function isSafeBackgroundCssValue(value) {
+  const normalized = normalizeCssValue(value);
+  return (
+    isSafeCssColorValue(normalized) ||
+    ["none", "transparent", "currentcolor", "inherit", "initial", "unset"].includes(normalized)
+  );
+}
+
+function isSafeBackgroundImageCssValue(value) {
+  const normalized = normalizeCssValue(value);
+  if (normalized === "none") return true;
+  return /^(?:repeating-)?(?:linear|radial)-gradient\([\s\S]+\)$/.test(normalized);
+}
+
+function isSafeCssColorValue(value) {
+  const normalized = normalizeCssValue(value);
+  return (
+    /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(normalized) ||
+    /^(?:rgb|rgba|hsl|hsla)\([0-9.%\s,/-]+\)$/i.test(normalized) ||
+    /^(?:black|white|red|green|blue|gray|grey|silver|maroon|purple|fuchsia|lime|olive|yellow|navy|teal|aqua|orange)$/.test(
+      normalized
+    )
+  );
+}
+
+function normalizeCssValue(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function hasViewportCssUnit(value) {

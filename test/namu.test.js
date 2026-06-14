@@ -204,6 +204,21 @@ script:alert(1); behavior:url(#x); -moz-binding:url(x)">스타일</span>
   assert.doesNotMatch(html, /java\s*script\s*:|data:image|url\(|expression\s*\(|behavior\s*:|-moz-binding|data-disabled-href/i);
 });
 
+test("keeps safe template layout styles while constraining display and backgrounds", () => {
+  const html = sanitizeArticleHtml(`
+    <div style="display:flex; background:#42b4e6; color:#fff">상단 틀</div>
+    <div style="display:inline-table; background:transparent; width:16.29%">멤버</div>
+    <div style="display:inline-block; background-image:linear-gradient(to bottom, transparent 45%, #fff 45%, #fff 55%, transparent 55%)">구분선</div>
+    <div style="display:none; background:url(javascript:alert(1)); background-image:url(https://example.com/x.png)">위험</div>
+  `);
+
+  assert.match(html, /style="display:flex; background:#42b4e6; color:#fff"/);
+  assert.match(html, /style="display:inline-table; background:transparent; width:16.29%"/);
+  assert.match(html, /style="display:inline-block; background-image:linear-gradient\(to bottom, transparent 45%, #fff 45%, #fff 55%, transparent 55%\)"/);
+  assert.match(html, /<div>위험<\/div>/);
+  assert.doesNotMatch(html, /display:none|url\(|javascript|example\.com/i);
+});
+
 test("allows only safe article style properties", () => {
   const html = sanitizeArticleHtml(`
     <div style="position: fixed; z-index: 9999; inset: 0; top: 0; left: 0; pointer-events: auto; transform: translateX(1px); margin-top: -10000px; margin-left: calc(0px - 10000px); width: 80%; max-width: 640px; min-height: 100vh; height: 100v\\68; width: 100v\\77; color: #123456; background-color: rgb(255, 255, 255); text-align: center; vertical-align: top; border: 1px solid #ccc; border-collapse: collapse">안전 스타일</div>
@@ -214,10 +229,10 @@ test("allows only safe article style properties", () => {
     html,
     /style="width: 80%; max-width: 640px; color: #123456; background-color: rgb\(255, 255, 255\); text-align: center; vertical-align: top; border: 1px solid #ccc; border-collapse: collapse"/
   );
-  assert.match(html, /<span>위험 스타일<\/span>/);
+  assert.match(html, /<span style="display: block">위험 스타일<\/span>/);
   assert.doesNotMatch(
     html,
-    /position|z-index|inset|top:|left:|bottom:|pointer-events|transform|display|fixed|sticky|margin-top|margin-left|-10000|100vh|100vw|100v\\(?:68|77)/i
+    /position|z-index|inset|top:|left:|bottom:|pointer-events|transform|fixed|sticky|margin-top|margin-left|-10000|100vh|100vw|100v\\(?:68|77)/i
   );
 });
 
