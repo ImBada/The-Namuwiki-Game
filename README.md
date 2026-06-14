@@ -34,7 +34,7 @@ npm test
 - `src/http.js` and `src/static.js`: small HTTP and static-file helpers.
 - `public/`: browser UI. `app.js` owns app state/rendering, while `client-utils.js` and `wiki-dom.js` hold reusable helpers.
 - `test/`: Node test runner coverage for NamuWiki parsing and round-quality logic.
-- `docs/`: planning notes and roadmap.
+- `docs/`: planning notes, roadmap, and goal balancing rules.
 
 ## Deploy to Vercel
 

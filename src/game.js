@@ -120,6 +120,9 @@ export async function createRound(options = {}) {
         exceptTitles: [startArticle.title],
         minLinks: 4
       });
+  if (isSingleHanCharacterTitle(goalArticle.title)) {
+    throw httpError(400, `목표 문서 "${goalArticle.title}"은(는) 한 글자 한자 문서라 사용할 수 없습니다.`);
+  }
   if (requestedGoalTitle) {
     await assertGoalArticleHasBacklinks(goalArticle);
   }
@@ -1131,6 +1134,11 @@ export function scoreArticleQuality(article, options = {}) {
     reasons.push("goal-index-like");
   }
 
+  if (role === "goal" && isSingleHanCharacterTitle(title)) {
+    score -= 80;
+    reasons.push("goal-single-han-character");
+  }
+
   const hasCheckedBacklinks = typeof article?.hasBacklinks === "boolean";
   if (role === "goal" && hasCheckedBacklinks && !article.hasBacklinks) {
     score -= 70;
@@ -1165,6 +1173,7 @@ export function scoreArticleQuality(article, options = {}) {
       score >= 70 &&
       linkCount >= minLinks &&
       !(role === "goal" && title.includes("/")) &&
+      !(role === "goal" && isSingleHanCharacterTitle(title)) &&
       !(role === "goal" && hasCheckedBacklinks && !article.hasBacklinks),
     score: Math.max(0, Math.min(100, score)),
     linkCount,
@@ -1208,6 +1217,10 @@ function titleTokens(title) {
   return normalizeTitle(title)
     .split(/[()\s/·,:-]+/)
     .filter((token) => token.length >= 2);
+}
+
+function isSingleHanCharacterTitle(title) {
+  return /^\p{Script=Han}$/u.test(normalizeTitle(title));
 }
 
 function sameTitle(a, b) {

@@ -87,6 +87,26 @@ test("rejects slash subpages as goals even when the score is high", () => {
   assert.ok(quality.reasons.includes("goal-subpage"));
 });
 
+test("rejects single Han character titles as goals", () => {
+  const quality = scoreArticleQuality(
+    article("凪", ["바람", "일본어", "한자", "이름", "문자", "일본"]),
+    { minLinks: 4, role: "goal" }
+  );
+
+  assert.equal(quality.accepted, false);
+  assert.ok(quality.reasons.includes("goal-single-han-character"));
+});
+
+test("does not reject non-Han one-character titles for the Han-character goal rule", () => {
+  const quality = scoreArticleQuality(
+    article("봄", ["계절", "날씨", "꽃", "음악", "영화", "문학"]),
+    { minLinks: 4, role: "goal" }
+  );
+
+  assert.equal(quality.accepted, true);
+  assert.doesNotMatch(quality.reasons.join(","), /goal-single-han-character/);
+});
+
 test("rejects checked goal articles without backlinks", () => {
   const quality = scoreArticleQuality(
     {

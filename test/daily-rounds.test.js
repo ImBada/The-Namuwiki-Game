@@ -80,3 +80,50 @@ test("persists daily challenge rounds after the first random generation", async 
     globalThis.fetch = originalFetch;
   }
 });
+
+test("re-rolls random goal candidates with single Han character titles", async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), "namuwiki-reroll-goal-"));
+  process.env.DATA_DIR = dataDir;
+
+  const originalFetch = globalThis.fetch;
+  const randomTitles = ["무작위 시작", "凪", "정상 목표"];
+  let randomCallCount = 0;
+
+  globalThis.fetch = async (url) => {
+    const href = String(url);
+    if (href === "https://namu.wiki/random") {
+      const title = randomTitles[randomCallCount] || "예비 문서";
+      randomCallCount += 1;
+      return new Response(articleHtml(title, 12), {
+        headers: { "Content-Type": "text/html" }
+      });
+    }
+
+    if (href.startsWith("https://namu.wiki/backlink/")) {
+      const encodedTitle = href.split("/backlink/")[1] || "";
+      const title = decodeURIComponent(encodedTitle);
+      return new Response(articleHtml(`${title} 역링크`, 1), {
+        headers: { "Content-Type": "text/html" }
+      });
+    }
+
+    const encodedTitle = href.split("/w/")[1] || "";
+    const title = decodeURIComponent(encodedTitle);
+    return new Response(articleHtml(title, 12), {
+      headers: { "Content-Type": "text/html" }
+    });
+  };
+
+  try {
+    const moduleUrl = new URL(`../src/game.js?reroll-goal=${Date.now()}`, import.meta.url);
+    const { createRound } = await import(moduleUrl.href);
+
+    const created = await createRound();
+
+    assert.equal(created.round.startTitle, "무작위 시작");
+    assert.equal(created.round.goalTitle, "정상 목표");
+    assert.equal(randomCallCount, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
