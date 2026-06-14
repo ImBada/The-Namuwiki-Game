@@ -140,6 +140,83 @@ const GAME_RUNTIME_CLASS_NAMES = new Set([
   "wiki-link-disabled",
   "wiki-link-external-disabled"
 ]);
+const SAFE_ARTICLE_STYLE_PROPERTIES = new Set([
+  "aspect-ratio",
+  "background-color",
+  "border",
+  "border-bottom",
+  "border-bottom-color",
+  "border-bottom-left-radius",
+  "border-bottom-right-radius",
+  "border-bottom-style",
+  "border-bottom-width",
+  "border-collapse",
+  "border-color",
+  "border-left",
+  "border-left-color",
+  "border-left-style",
+  "border-left-width",
+  "border-radius",
+  "border-right",
+  "border-right-color",
+  "border-right-style",
+  "border-right-width",
+  "border-spacing",
+  "border-style",
+  "border-top",
+  "border-top-color",
+  "border-top-left-radius",
+  "border-top-right-radius",
+  "border-top-style",
+  "border-top-width",
+  "border-width",
+  "box-sizing",
+  "caption-side",
+  "color",
+  "empty-cells",
+  "font",
+  "font-family",
+  "font-size",
+  "font-stretch",
+  "font-style",
+  "font-variant",
+  "font-weight",
+  "height",
+  "letter-spacing",
+  "line-height",
+  "list-style",
+  "list-style-position",
+  "list-style-type",
+  "margin",
+  "margin-bottom",
+  "margin-left",
+  "margin-right",
+  "margin-top",
+  "max-height",
+  "max-width",
+  "min-height",
+  "min-width",
+  "object-fit",
+  "object-position",
+  "overflow-wrap",
+  "padding",
+  "padding-bottom",
+  "padding-left",
+  "padding-right",
+  "padding-top",
+  "text-align",
+  "text-decoration",
+  "text-decoration-color",
+  "text-decoration-line",
+  "text-decoration-style",
+  "text-decoration-thickness",
+  "vertical-align",
+  "white-space",
+  "width",
+  "word-break",
+  "word-spacing",
+  "word-wrap"
+]);
 
 export function normalizeTitle(title) {
   return decodeHtmlEntities(String(title || ""))
@@ -553,6 +630,8 @@ function isSafeStyleDeclaration(declaration) {
 
   const property = declaration.slice(0, separatorIndex).trim();
   const value = declaration.slice(separatorIndex + 1).trim();
+  const normalizedProperty = property.toLowerCase();
+  const decodedValue = decodeCssEscapes(value).toLowerCase();
   const decoded = decodeCssEscapes(`${property}:${value}`).toLowerCase();
   const compactDecoded = decoded.replace(/[\u0000-\u001f\u007f\s]+/g, "");
   const dangerousPattern =
@@ -561,8 +640,22 @@ function isSafeStyleDeclaration(declaration) {
     /(?:url\(|expression\(|@import|-moz-binding|behavior:|javascript:|data:|vbscript:)/i;
 
   if (!/^(?:-?[a-z_][a-z0-9_-]*|--[a-z0-9_-]+)$/i.test(property)) return false;
+  if (!SAFE_ARTICLE_STYLE_PROPERTIES.has(normalizedProperty)) return false;
   if (!value || /[<>`]/.test(value)) return false;
+  if (hasViewportCssUnit(decodedValue)) return false;
+  if (normalizedProperty === "margin" || normalizedProperty.startsWith("margin-")) {
+    if (hasNegativeCssLength(decodedValue)) return false;
+    if (/\bcalc\s*\(/i.test(decodedValue)) return false;
+  }
   return !dangerousPattern.test(decoded) && !compactDangerousPattern.test(compactDecoded);
+}
+
+function hasViewportCssUnit(value) {
+  return /(?:^|[^a-z0-9_-])-?(?:\d+|\d*\.\d+)v(?:w|h|i|b|min|max)\b/i.test(String(value || ""));
+}
+
+function hasNegativeCssLength(value) {
+  return /(?:^|[\s(,])-+\s*(?:\d+|\d*\.\d+)(?:[a-z%]+)?\b/i.test(String(value || ""));
 }
 
 function decodeCssEscapes(value) {

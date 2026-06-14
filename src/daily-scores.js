@@ -11,6 +11,7 @@ const DATA_DIR = resolve(
   join(process.cwd(), ".data")
 );
 const DAILY_SCORES_FILE = join(DATA_DIR, "daily-scores.json");
+const USED_ROUND_TOKEN_HASHES_KEY = "_usedRoundTokenHashes";
 const ROUND_SECRET = getRoundSecret();
 
 let dailyScoreWriteQueue = Promise.resolve();
@@ -20,7 +21,7 @@ export async function getDailyLeaderboard() {
   const store = await readDailyScoreStore();
   return {
     dateKey,
-    scores: normalizeDailyScores(store[dateKey] || []).slice(0, 20)
+    scores: publicDailyScores(normalizeDailyScores(scoreStoreDateEntry(store, dateKey)).slice(0, 20))
   };
 }
 
@@ -29,10 +30,14 @@ export async function submitDailyScore(body, options = {}) {
   const nickname = normalizeNickname(body?.nickname);
   if (!nickname) throw httpError(400, "닉네임을 입력해 주세요.");
 
-  const completedRound = verifyCompletedDailyRound(body?.roundId, { dateKey });
+  const roundId = String(body?.roundId || "");
+  const completedRound = verifyCompletedDailyRound(roundId, { dateKey });
   assertSubmittedRoundMetrics(body, completedRound);
   const now = resolveTimestamp(options.now);
-  const elapsedSeconds = elapsedSecondsFromRound(completedRound.startedAt, now, body?.elapsedSeconds);
+  const completedAt = completionTimestampFromRound(completedRound, now);
+  const elapsedSeconds = elapsedSecondsFromRound(completedRound.startedAt, completedAt, now);
+  const roundTokenHashes = hashRoundSubmission(completedRound, roundId);
+  const roundTokenHash = roundTokenHashes[0];
 
   const score = {
     id: createHmac("sha256", ROUND_SECRET)
@@ -44,15 +49,29 @@ export async function submitDailyScore(body, options = {}) {
     clickCount: completedRound.clickCount,
     elapsedSeconds,
     pathLength: completedRound.pathLength,
-    completedAt: new Date().toISOString()
+    completedAt: new Date(completedAt).toISOString(),
+    roundTokenHash
   };
 
   const result = await queueDailyScoreWrite(async () => {
     const store = await readDailyScoreStore();
-    const todayOnlyStore = { [dateKey]: normalizeDailyScores(store[dateKey] || []) };
-    const sortedScores = [...todayOnlyStore[dateKey], score].sort(compareScores);
+    const existingScores = normalizeDailyScores(scoreStoreDateEntry(store, dateKey));
+    const usedRoundTokenHashes = collectUsedRoundTokenHashes(store, dateKey, existingScores);
+    if (roundTokenHashes.some((hash) => usedRoundTokenHashes.has(hash))) {
+      throw httpError(409, "이미 등록된 라운드 기록입니다.");
+    }
+
+    for (const hash of roundTokenHashes) {
+      usedRoundTokenHashes.add(hash);
+    }
+    const sortedScores = [...existingScores, score].sort(compareScores);
     const rank = sortedScores.findIndex((item) => item.id === score.id) + 1;
-    todayOnlyStore[dateKey] = sortedScores.slice(0, 100);
+    const todayOnlyStore = {
+      [dateKey]: sortedScores.slice(0, 100),
+      [USED_ROUND_TOKEN_HASHES_KEY]: {
+        [dateKey]: [...usedRoundTokenHashes]
+      }
+    };
     await writeDailyScoreStore(todayOnlyStore);
     return {
       rank,
@@ -60,7 +79,12 @@ export async function submitDailyScore(body, options = {}) {
     };
   });
 
-  return { dateKey, score, rank: result.rank, scores: result.scores };
+  return {
+    dateKey,
+    score: publicDailyScore(score),
+    rank: result.rank,
+    scores: publicDailyScores(result.scores)
+  };
 }
 
 function queueDailyScoreWrite(task) {
@@ -88,18 +112,24 @@ function parseSubmittedInteger(value) {
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
-function elapsedSecondsFromRound(startedAt, now, submittedElapsedSeconds) {
-  if (now + 5000 < startedAt) {
+function completionTimestampFromRound(completedRound, now) {
+  const completedAt = Number(completedRound.completedAt);
+  return Number.isSafeInteger(completedAt) && completedAt > 0 ? completedAt : now;
+}
+
+function elapsedSecondsFromRound(startedAt, completedAt, now) {
+  if (
+    now + 5000 < startedAt ||
+    now + 5000 < completedAt ||
+    completedAt + 5000 < startedAt
+  ) {
     throw httpError(400, "라운드 시간이 올바르지 않습니다.");
   }
-  const serverElapsedSeconds = clampInteger(
-    Math.floor(Math.max(1000, now - startedAt) / 1000),
+  return clampInteger(
+    Math.floor(Math.max(1000, completedAt - startedAt) / 1000),
     1,
     24 * 60 * 60
   );
-  const submittedElapsed = parseSubmittedInteger(submittedElapsedSeconds);
-  if (!submittedElapsed || submittedElapsed < 1) return 1;
-  return Math.min(submittedElapsed, serverElapsedSeconds);
 }
 
 function resolveTimestamp(value) {
@@ -122,17 +152,55 @@ async function writeDailyScoreStore(store) {
 
 function normalizeDailyScores(scores) {
   return (Array.isArray(scores) ? scores : [])
-    .map((score) => ({
-      id: String(score.id || ""),
-      dateKey: normalizeDailyDateKey(score.dateKey),
-      nickname: normalizeNickname(score.nickname) || "익명",
-      clickCount: clampInteger(score.clickCount, 0, 999),
-      elapsedSeconds: clampInteger(score.elapsedSeconds, 0, 24 * 60 * 60),
-      pathLength: clampInteger(score.pathLength, 1, 1000),
-      completedAt: String(score.completedAt || "")
-    }))
+    .map((score) => {
+      const legacyRoundId = String(score.roundId || "").trim();
+      return {
+        id: String(score.id || ""),
+        dateKey: normalizeDailyDateKey(score.dateKey),
+        nickname: normalizeNickname(score.nickname) || "익명",
+        clickCount: clampInteger(score.clickCount, 0, 999),
+        elapsedSeconds: clampInteger(score.elapsedSeconds, 0, 24 * 60 * 60),
+        pathLength: clampInteger(score.pathLength, 1, 1000),
+        completedAt: String(score.completedAt || ""),
+        roundTokenHash:
+          normalizeRoundTokenHash(score.roundTokenHash) ||
+          (legacyRoundId ? hashRoundToken(legacyRoundId) : "")
+      };
+    })
     .filter((score) => score.dateKey)
     .sort(compareScores);
+}
+
+function publicDailyScores(scores) {
+  return scores.map(publicDailyScore);
+}
+
+function publicDailyScore(score) {
+  const { roundTokenHash, ...publicScore } = score;
+  return publicScore;
+}
+
+function scoreStoreDateEntry(store, dateKey) {
+  return store && typeof store === "object" && !Array.isArray(store)
+    ? store[dateKey]
+    : [];
+}
+
+function collectUsedRoundTokenHashes(store, dateKey, scores) {
+  const hashes = new Set(scores.map((score) => score.roundTokenHash).filter(Boolean));
+  const metadata = store && typeof store === "object" && !Array.isArray(store)
+    ? store[USED_ROUND_TOKEN_HASHES_KEY]
+    : null;
+  const storedHashes = metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? metadata[dateKey]
+    : [];
+
+  for (const hash of Array.isArray(storedHashes) ? storedHashes : []) {
+    const normalizedHash = normalizeRoundTokenHash(hash);
+    if (normalizedHash) hashes.add(normalizedHash);
+  }
+
+  return hashes;
 }
 
 function compareScores(a, b) {
@@ -155,6 +223,47 @@ function clampInteger(value, min, max) {
   const integer = Number.parseInt(value, 10);
   if (!Number.isFinite(integer)) return min;
   return Math.max(min, Math.min(max, integer));
+}
+
+function hashRoundToken(roundId) {
+  return createHmac("sha256", ROUND_SECRET)
+    .update(roundId)
+    .digest("base64url");
+}
+
+function hashRoundSubmission(completedRound, roundId) {
+  const attemptId = normalizeRoundAttemptId(completedRound.attemptId);
+  if (attemptId) {
+    return [hashRoundSubmissionKey(`attempt:${completedRound.dailyDateKey}:${attemptId}`)];
+  }
+
+  const legacyStableHash = hashRoundSubmissionKey([
+    "legacy-attempt",
+    completedRound.dailyDateKey,
+    completedRound.startedAt,
+    completedRound.startTitle,
+    completedRound.goalTitle
+  ].join("\u001f"));
+  const exactTokenHash = hashRoundToken(roundId);
+  return legacyStableHash === exactTokenHash
+    ? [legacyStableHash]
+    : [legacyStableHash, exactTokenHash];
+}
+
+function hashRoundSubmissionKey(key) {
+  return createHmac("sha256", ROUND_SECRET)
+    .update(key)
+    .digest("base64url");
+}
+
+function normalizeRoundTokenHash(value) {
+  const hash = String(value || "").trim();
+  return /^[A-Za-z0-9_-]{32,128}$/.test(hash) ? hash : "";
+}
+
+function normalizeRoundAttemptId(value) {
+  const attemptId = String(value || "").trim();
+  return /^[A-Za-z0-9_-]{8,128}$/.test(attemptId) ? attemptId : "";
 }
 
 function normalizeDailyDateKey(value) {

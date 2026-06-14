@@ -17,6 +17,8 @@ function createResponseRecorder() {
   };
 }
 
+const hasStatusCode = (expectedStatusCode) => (error) => error.statusCode === expectedStatusCode;
+
 test("serves the app entry point", async () => {
   const response = createResponseRecorder();
 
@@ -25,6 +27,30 @@ test("serves the app entry point", async () => {
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers["Content-Type"], "text/html; charset=utf-8");
   assert.match(response.body.toString("utf8"), /<html/i);
+});
+
+test("falls back to the app entry point for SPA navigation paths", async () => {
+  const response = createResponseRecorder();
+
+  await serveStatic(new URL("https://example.com/rooms/ABCDE?start=Alpha"), response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers["Content-Type"], "text/html; charset=utf-8");
+  assert.match(response.body.toString("utf8"), /<html/i);
+});
+
+test("returns 404 for missing static assets", async () => {
+  await assert.rejects(
+    serveStatic("/missing-app.js", createResponseRecorder()),
+    hasStatusCode(404)
+  );
+});
+
+test("returns 404 for unknown API paths", async () => {
+  await assert.rejects(
+    serveStatic("/api/not-a-route", createResponseRecorder()),
+    hasStatusCode(404)
+  );
 });
 
 test("injects share metadata for route links", async () => {
@@ -41,6 +67,6 @@ test("injects share metadata for route links", async () => {
 test("rejects static paths outside the public directory", async () => {
   await assert.rejects(
     serveStatic("/../server.js", createResponseRecorder()),
-    (error) => error.statusCode === 403
+    hasStatusCode(403)
   );
 });

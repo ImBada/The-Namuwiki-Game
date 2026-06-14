@@ -806,9 +806,14 @@ async function rewindToPathIndex(pathIndex) {
     });
     state.round = data.round;
     state.article = data.article;
-    state.completed = false;
+    state.completed = Boolean(data.completed);
     state.roundStartedAt = state.roundStartedAt || Date.now();
-    state.completedElapsedSeconds = 0;
+    state.completedElapsedSeconds = state.completed
+      ? state.completedElapsedSeconds || elapsedSecondsForRound()
+      : 0;
+    if (state.completed) {
+      stopTimer();
+    }
     broadcastMultiplayerClicks();
     render();
     scrollToArticleTop();

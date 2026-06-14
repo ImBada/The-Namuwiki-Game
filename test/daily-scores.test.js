@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -80,7 +80,8 @@ test("returns the submitted daily score rank", async () => {
     roundId: signedRoundId({
       path: ["시작", "중간", "목표"],
       clickCount: 2,
-      startedAt: now - 20000
+      startedAt: now - 20000,
+      completedAt: now
     }),
     clickCount: 2,
     elapsedSeconds: 999,
@@ -92,7 +93,8 @@ test("returns the submitted daily score rank", async () => {
     roundId: signedRoundId({
       path: ["시작", "하나", "둘", "목표"],
       clickCount: 3,
-      startedAt: now - 15000
+      startedAt: now - 15000,
+      completedAt: now
     }),
     clickCount: 3,
     elapsedSeconds: 15,
@@ -104,6 +106,7 @@ test("returns the submitted daily score rank", async () => {
   assert.equal(submitted.score.nickname, "두번째 사람");
   assert.equal(submitted.score.elapsedSeconds, 15);
   assert.equal(submitted.scores[1].id, submitted.score.id);
+  assert.equal(Object.hasOwn(submitted.score, "roundTokenHash"), false);
 });
 
 test("rejects scores without a valid signed round token", async () => {
@@ -191,12 +194,30 @@ test("rejects signed rounds with inconsistent click and path counts", async () =
   );
 });
 
-test("uses server elapsed time instead of trusting a submitted zero", async () => {
-  const { submitDailyScore } = await importDailyScores("elapsed");
+test("uses signed completion time instead of trusting submitted elapsed time", async () => {
+  const { submitDailyScore } = await importDailyScores("signed-elapsed");
   const now = Date.now();
+  const startedAt = now - 30000;
+  const completedAt = now - 10000;
 
   const submitted = await submitDailyScore({
     nickname: "정상 기록",
+    roundId: signedRoundId({ startedAt, completedAt }),
+    clickCount: 1,
+    elapsedSeconds: 1,
+    pathLength: 2
+  }, { now });
+
+  assert.equal(submitted.score.elapsedSeconds, 20);
+  assert.equal(submitted.score.completedAt, new Date(completedAt).toISOString());
+});
+
+test("uses server receipt time for legacy completed daily tokens", async () => {
+  const { submitDailyScore } = await importDailyScores("legacy-elapsed");
+  const now = Date.now();
+
+  const submitted = await submitDailyScore({
+    nickname: "레거시 기록",
     roundId: signedRoundId({ startedAt: now - 1800 }),
     clickCount: 1,
     elapsedSeconds: 0,
@@ -204,6 +225,158 @@ test("uses server elapsed time instead of trusting a submitted zero", async () =
   }, { now });
 
   assert.equal(submitted.score.elapsedSeconds, 1);
+  assert.equal(submitted.score.completedAt, new Date(now).toISOString());
+});
+
+test("rejects repeated submissions with the same completed round token", async () => {
+  const { getDailyLeaderboard, submitDailyScore } = await importDailyScores("duplicate-token");
+  const now = Date.now();
+  const roundId = signedRoundId({
+    startedAt: now - 5000,
+    completedAt: now
+  });
+
+  await submitDailyScore({
+    nickname: "첫 제출",
+    roundId,
+    clickCount: 1,
+    elapsedSeconds: 5,
+    pathLength: 2
+  }, { now });
+
+  await assert.rejects(
+    submitDailyScore({
+      nickname: "재제출",
+      roundId,
+      clickCount: 1,
+      elapsedSeconds: 5,
+      pathLength: 2
+    }, { now }),
+    (error) => error.statusCode === 409 && error.message === "이미 등록된 라운드 기록입니다."
+  );
+
+  const leaderboard = await getDailyLeaderboard();
+  assert.equal(leaderboard.scores.length, 1);
+  assert.equal(leaderboard.scores[0].nickname, "첫 제출");
+  assert.equal(Object.hasOwn(leaderboard.scores[0], "roundTokenHash"), false);
+});
+
+test("rejects repeated submissions from the same round attempt", async () => {
+  const { getDailyLeaderboard, submitDailyScore } = await importDailyScores("duplicate-attempt");
+  const now = Date.now();
+  const attemptId = "attempt-duplicate-1";
+  const firstRoundId = signedRoundId({
+    attemptId,
+    startedAt: now - 10000,
+    completedAt: now - 5000
+  });
+  const replayedFinalClickRoundId = signedRoundId({
+    attemptId,
+    startedAt: now - 10000,
+    completedAt: now
+  });
+
+  await submitDailyScore({
+    nickname: "첫 완료",
+    roundId: firstRoundId,
+    clickCount: 1,
+    elapsedSeconds: 5,
+    pathLength: 2
+  }, { now });
+
+  await assert.rejects(
+    submitDailyScore({
+      nickname: "같은 시도",
+      roundId: replayedFinalClickRoundId,
+      clickCount: 1,
+      elapsedSeconds: 10,
+      pathLength: 2
+    }, { now }),
+    (error) => error.statusCode === 409 && error.message === "이미 등록된 라운드 기록입니다."
+  );
+
+  const leaderboard = await getDailyLeaderboard();
+  assert.equal(leaderboard.scores.length, 1);
+  assert.equal(leaderboard.scores[0].nickname, "첫 완료");
+});
+
+test("rejects repeated submissions stored with legacy token hashes", async () => {
+  const { submitDailyScore } = await importDailyScores("legacy-token-hash");
+  const dateKey = todayDateKey();
+  const now = Date.now();
+  const roundId = signedRoundId({
+    startedAt: now - 5000,
+    completedAt: now
+  });
+  const legacyRoundTokenHash = createHmac("sha256", ROUND_SECRET)
+    .update(roundId)
+    .digest("base64url");
+
+  await writeFile(
+    join(process.env.DATA_DIR, "daily-scores.json"),
+    `${JSON.stringify({
+      [dateKey]: [{
+        id: "legacy",
+        dateKey,
+        nickname: "기존 기록",
+        clickCount: 1,
+        elapsedSeconds: 5,
+        pathLength: 2,
+        completedAt: new Date(now).toISOString(),
+        roundTokenHash: legacyRoundTokenHash
+      }]
+    }, null, 2)}\n`
+  );
+
+  await assert.rejects(
+    submitDailyScore({
+      nickname: "재제출",
+      roundId,
+      clickCount: 1,
+      elapsedSeconds: 5,
+      pathLength: 2
+    }, { now }),
+    (error) => error.statusCode === 409 && error.message === "이미 등록된 라운드 기록입니다."
+  );
+});
+
+test("rejects repeated legacy submissions from the same started round", async () => {
+  const { getDailyLeaderboard, submitDailyScore } = await importDailyScores("legacy-replayed-final-click");
+  const now = Date.now();
+  const startedAt = now - 10000;
+  const firstRoundId = signedRoundId({
+    startedAt,
+    completedAt: now - 5000
+  });
+  const replayedFinalClickRoundId = signedRoundId({
+    path: ["시작", "우회", "목표"],
+    clickCount: 2,
+    startedAt,
+    completedAt: now
+  });
+
+  await submitDailyScore({
+    nickname: "레거시 첫 완료",
+    roundId: firstRoundId,
+    clickCount: 1,
+    elapsedSeconds: 5,
+    pathLength: 2
+  }, { now });
+
+  await assert.rejects(
+    submitDailyScore({
+      nickname: "레거시 재완료",
+      roundId: replayedFinalClickRoundId,
+      clickCount: 2,
+      elapsedSeconds: 10,
+      pathLength: 3
+    }, { now }),
+    (error) => error.statusCode === 409 && error.message === "이미 등록된 라운드 기록입니다."
+  );
+
+  const leaderboard = await getDailyLeaderboard();
+  assert.equal(leaderboard.scores.length, 1);
+  assert.equal(leaderboard.scores[0].nickname, "레거시 첫 완료");
 });
 
 test("rejects daily rounds from another date", async () => {
@@ -264,6 +437,11 @@ test("rejects specified rounds requested with the daily flag", async () => {
 
     assert.equal(created.round.dailyChallenge, false);
     assert.equal(completed.round.dailyChallenge, false);
+    assert.equal(typeof completed.round.completedAt, "number");
+    const completedPayload = JSON.parse(
+      Buffer.from(completed.round.id.split(".")[0], "base64url").toString("utf8")
+    );
+    assert.equal(completedPayload.completedAt, completed.round.completedAt);
     await assert.rejects(
       submitDailyScore({
         nickname: "지정 일일",

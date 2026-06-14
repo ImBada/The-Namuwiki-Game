@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { brotliCompress, brotliDecompress } from "node:zlib";
@@ -129,6 +129,7 @@ export async function createRound(options = {}) {
   }
 
   const round = {
+    attemptId: createRoundAttemptId(),
     startTitle: startArticle.title,
     goalTitle: goalArticle.title,
     currentTitle: startArticle.title,
@@ -280,6 +281,14 @@ export async function handleClick(body) {
 
   const completed =
     normalizeTitle(nextArticle.title) === normalizeTitle(round.goalTitle);
+  if (completed) {
+    const completedAt = Number(round.completedAt);
+    round.completedAt = Number.isSafeInteger(completedAt) && completedAt > 0
+      ? completedAt
+      : Date.now();
+  } else {
+    delete round.completedAt;
+  }
 
   return {
     round: publicRound(round),
@@ -305,11 +314,13 @@ export async function handleRewind(body) {
   round.path = rewoundPath;
   round.path[round.path.length - 1] = article.title;
   round.clickCount = Math.max(0, round.path.length - 1);
+  const completed = normalizeTitle(article.title) === normalizeTitle(round.goalTitle);
+  if (!completed) delete round.completedAt;
 
   return {
     round: publicRound(round),
     article,
-    completed: normalizeTitle(article.title) === normalizeTitle(round.goalTitle)
+    completed
   };
 }
 
@@ -328,6 +339,12 @@ export function verifyCompletedDailyRound(roundId, options = {}) {
   const path = Array.isArray(round.path) ? round.path.map((title) => normalizeTitle(title)) : [];
   const clickCount = Number(round.clickCount);
   const startedAt = Number(round.startedAt);
+  const attemptId = normalizeRoundAttemptId(round.attemptId);
+  const hasCompletedAt =
+    round.completedAt !== undefined &&
+    round.completedAt !== null &&
+    round.completedAt !== "";
+  const completedAt = Number(round.completedAt);
 
   if (
     !startTitle ||
@@ -357,6 +374,12 @@ export function verifyCompletedDailyRound(roundId, options = {}) {
   if (!Number.isSafeInteger(startedAt) || startedAt <= 0) {
     throw httpError(400, "라운드 시간이 올바르지 않습니다.");
   }
+  if (
+    hasCompletedAt &&
+    (!Number.isSafeInteger(completedAt) || completedAt < startedAt)
+  ) {
+    throw httpError(400, "라운드 시간이 올바르지 않습니다.");
+  }
 
   return {
     startTitle,
@@ -366,6 +389,8 @@ export function verifyCompletedDailyRound(roundId, options = {}) {
     clickCount,
     pathLength: path.length,
     startedAt,
+    ...(attemptId ? { attemptId } : {}),
+    ...(hasCompletedAt ? { completedAt } : {}),
     dailyDateKey,
     dailyChallenge: true
   };
@@ -825,6 +850,7 @@ function escapeHtml(value) {
 }
 
 function publicRound(round) {
+  const completedAt = Number(round.completedAt);
   return {
     id: encodeRoundToken(round),
     startTitle: round.startTitle,
@@ -833,23 +859,37 @@ function publicRound(round) {
     path: round.path,
     clickCount: round.clickCount,
     startedAt: round.startedAt,
+    ...(Number.isSafeInteger(completedAt) && completedAt > 0 ? { completedAt } : {}),
     dailyChallenge: Boolean(round.dailyChallenge),
     dailyDateKey: round.dailyDateKey || ""
   };
 }
 
 function encodeRoundToken(round) {
+  const completedAt = Number(round.completedAt);
+  const attemptId = normalizeRoundAttemptId(round.attemptId);
   const payload = Buffer.from(JSON.stringify({
+    ...(attemptId ? { attemptId } : {}),
     startTitle: round.startTitle,
     goalTitle: round.goalTitle,
     currentTitle: round.currentTitle,
     path: round.path,
     clickCount: round.clickCount,
     startedAt: round.startedAt,
+    ...(Number.isSafeInteger(completedAt) && completedAt > 0 ? { completedAt } : {}),
     dailyChallenge: Boolean(round.dailyChallenge),
     dailyDateKey: round.dailyDateKey || ""
   })).toString("base64url");
   return `${payload}.${signRoundPayload(payload)}`;
+}
+
+function createRoundAttemptId() {
+  return randomUUID();
+}
+
+function normalizeRoundAttemptId(value) {
+  const attemptId = String(value || "").trim();
+  return /^[A-Za-z0-9_-]{8,128}$/.test(attemptId) ? attemptId : "";
 }
 
 function decodeRoundToken(token) {

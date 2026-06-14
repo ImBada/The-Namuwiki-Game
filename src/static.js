@@ -33,10 +33,18 @@ export async function serveStatic(requestPath, response) {
     });
     response.end(filePath.endsWith(`${sep}index.html`) ? renderIndexHtml(data, requestUrl) : data);
   } catch {
+    if (!shouldFallbackToIndex(pathname)) {
+      throw httpError(404, "Not found");
+    }
+
     const fallback = await readFile(join(PUBLIC_DIR, "index.html"));
     response.writeHead(200, { "Content-Type": mimeTypes[".html"] });
     response.end(renderIndexHtml(fallback, requestUrl));
   }
+}
+
+function shouldFallbackToIndex(pathname) {
+  return pathname !== "/api" && !pathname.startsWith("/api/") && extname(pathname) === "";
 }
 
 function renderIndexHtml(data, requestUrl) {

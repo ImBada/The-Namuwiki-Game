@@ -9,12 +9,21 @@ const MAX_SIGNALS_PER_ROOM = Number.parseInt(
   process.env.MULTIPLAYER_MAX_SIGNALS_PER_ROOM || "80",
   10
 );
+const SERVERLESS_MULTIPLAYER_ENVIRONMENT_MARKERS = [
+  "VERCEL",
+  "AWS_LAMBDA_FUNCTION_NAME",
+  "AWS_EXECUTION_ENV",
+  "NETLIFY",
+  "CF_PAGES",
+  "FUNCTION_TARGET"
+];
 
 const rooms = new Map();
 let nextSignalId = 1;
 let lastCleanupAt = 0;
 
 export function createMultiplayerRoom(body = {}) {
+  assertMultiplayerAvailable();
   cleanupMultiplayerRooms();
 
   const hostPeerId = createPeerId();
@@ -36,6 +45,7 @@ export function createMultiplayerRoom(body = {}) {
 }
 
 export function joinMultiplayerRoom(code, body = {}) {
+  assertMultiplayerAvailable();
   cleanupMultiplayerRooms();
 
   const room = getRoom(code);
@@ -50,6 +60,7 @@ export function joinMultiplayerRoom(code, body = {}) {
 }
 
 export function getMultiplayerRoom(code, peerId = "", peerSecret = "") {
+  assertMultiplayerAvailable();
   cleanupMultiplayerRooms();
 
   const room = getRoom(code);
@@ -58,6 +69,7 @@ export function getMultiplayerRoom(code, peerId = "", peerSecret = "") {
 }
 
 export function addMultiplayerSignal(code, body = {}) {
+  assertMultiplayerAvailable();
   cleanupMultiplayerRooms();
 
   const room = getRoom(code);
@@ -84,6 +96,7 @@ export function addMultiplayerSignal(code, body = {}) {
 }
 
 export function readMultiplayerSignals(code, peerId, peerSecret, after = 0) {
+  assertMultiplayerAvailable();
   cleanupMultiplayerRooms();
 
   const room = getRoom(code);
@@ -240,6 +253,18 @@ function touchRoom(room) {
 function pruneSignals(signals) {
   const minimumCreatedAt = Date.now() - SIGNAL_TTL_MS;
   return signals.filter((signal) => signal.createdAt >= minimumCreatedAt);
+}
+
+function assertMultiplayerAvailable() {
+  if (!isServerlessMultiplayerEnvironment()) return;
+  throw httpError(
+    503,
+    "멀티플레이어 API는 Vercel/serverless 배포에서 비활성화되어 있습니다."
+  );
+}
+
+function isServerlessMultiplayerEnvironment() {
+  return SERVERLESS_MULTIPLAYER_ENVIRONMENT_MARKERS.some((name) => Boolean(process.env[name]));
 }
 
 function cleanupMultiplayerRooms() {
