@@ -114,7 +114,7 @@ export async function handleRequest(request, response) {
       return sendJson(response, await handleRewind(body));
     }
 
-    return serveStatic(url, response);
+    return await serveStatic(url, response);
   } catch (error) {
     const status = error.statusCode || 500;
     sendJson(response, { error: error.message || "Server error" }, status);
