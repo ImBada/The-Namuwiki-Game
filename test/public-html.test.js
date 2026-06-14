@@ -73,11 +73,14 @@ test("history screen paginates local records without a storage cap", async () =>
   assert.match(html, /id="historyPrevButton"/);
   assert.match(html, /id="historyPageStatus"/);
   assert.match(html, /id="historyNextButton"/);
+  assert.match(html, /<nav id="historyPagination"[\s\S]*id="clearHistoryButton"/);
   assert.match(script, /HISTORY_PAGE_SIZE = 30/);
   assert.match(script, /changeHistoryPage/);
   assert.doesNotMatch(script, /HISTORY_LIMIT/);
   assert.doesNotMatch(script, /\.slice\(0, HISTORY_/);
   assert.match(styles, /\.history-pagination/);
+  assert.match(styles, /\.history-page-controls/);
+  assert.match(styles, /\.danger-button/);
 });
 
 test("daily leaderboards show labeled score and completion columns", async () => {

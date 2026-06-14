@@ -499,19 +499,32 @@ a:focus-visible {
 }
 
 .history-pagination {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(96px, 1fr) auto minmax(96px, 1fr);
   align-items: center;
-  justify-content: center;
   gap: 12px;
   min-height: 44px;
 }
 
-.history-pagination span {
+.history-page-controls {
+  display: flex;
+  grid-column: 2;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.history-page-controls span {
   min-width: 120px;
   color: #b8d6cf;
   font-size: 13px;
   font-weight: 850;
   text-align: center;
+}
+
+.history-clear-button {
+  grid-column: 3;
+  justify-self: end;
 }
 
 .daily-card,
@@ -1026,6 +1039,17 @@ a:focus-visible {
 .secondary-button:disabled {
   cursor: wait;
   opacity: 0.65;
+}
+
+.danger-button {
+  border-color: rgba(255, 96, 122, 0.42);
+  background: rgba(229, 70, 109, 0.16);
+  color: #ff9aab;
+}
+
+.danger-button:hover {
+  background: rgba(229, 70, 109, 0.26);
+  color: #ffd6de;
 }
 
 .round-strip {
@@ -3605,6 +3629,19 @@ body.is-loading .game-wiki-link {
 
   .history-list details {
     width: 100%;
+  }
+
+  .history-pagination {
+    grid-template-columns: 1fr;
+  }
+
+  .history-page-controls {
+    grid-column: 1;
+  }
+
+  .history-clear-button {
+    grid-column: 1;
+    justify-self: end;
   }
 
   .history-share-button {

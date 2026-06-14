@@ -124,15 +124,17 @@
               <h2 id="historyTitle">플레이 히스토리</h2>
             </div>
             <div class="history-actions">
-              <button id="clearHistoryButton" class="secondary-button" type="button">전체 삭제</button>
               <button id="historyBackButton" class="primary-button" type="button">메인으로</button>
             </div>
           </div>
           <ol id="historyList" class="history-list"></ol>
           <nav id="historyPagination" class="history-pagination" aria-label="히스토리 페이지">
-            <button id="historyPrevButton" class="secondary-button" type="button">이전</button>
-            <span id="historyPageStatus" aria-live="polite"></span>
-            <button id="historyNextButton" class="secondary-button" type="button">다음</button>
+            <div class="history-page-controls">
+              <button id="historyPrevButton" class="secondary-button" type="button">이전</button>
+              <span id="historyPageStatus" aria-live="polite"></span>
+              <button id="historyNextButton" class="secondary-button" type="button">다음</button>
+            </div>
+            <button id="clearHistoryButton" class="secondary-button danger-button history-clear-button" type="button">전체 삭제</button>
           </nav>
         </section>
         <p class="storage-note" data-storage-note>
