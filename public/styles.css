@@ -1810,6 +1810,11 @@ body.is-loading .game-wiki-link {
   display: none;
 }
 
+.wiki-article .wiki-theme-dark,
+.wiki-article .wiki-theme-image-hidden {
+  display: none !important;
+}
+
 .wiki-article img {
   display: inline-block;
   max-width: 100%;
@@ -1918,7 +1923,7 @@ body.is-loading .game-wiki-link {
 .wiki-article table,
 .wiki-article .wiki-table,
 .wiki-article ._5d8En-dC {
-  width: 100%;
+  width: auto;
   max-width: 100%;
   border-collapse: collapse;
   background: #f5f5f5;
@@ -1928,6 +1933,13 @@ body.is-loading .game-wiki-link {
 
 .wiki-article .wiki-table-wrap,
 .wiki-article .fLK1WVog {
+  display: block;
+  margin: 10px 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.wiki-article :is(div, figure):has(> table:only-child) {
   display: block;
   margin: 10px 0;
   max-width: 100%;
@@ -1948,6 +1960,12 @@ body.is-loading .game-wiki-link {
 .wiki-article .wiki-table-wrap.table-center,
 .wiki-article .fLK1WVog.wsHfjvwM {
   margin: 10px auto;
+}
+
+.wiki-article .wiki-table-wrap.table-center .wiki-table,
+.wiki-article .fLK1WVog.wsHfjvwM ._5d8En-dC,
+.wiki-article :is(div, figure):has(> table:only-child) > table:only-child {
+  margin: auto;
 }
 
 .wiki-article td,

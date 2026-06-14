@@ -1,11 +1,60 @@
 export function normalizeWikiArticleDom(root) {
   normalizeCategoryBoxes(root);
+  normalizeThemeImageVariants(root);
   foldLeadingUtilityContent(root);
   foldDefaultCollapsedBrowseSection(root);
   normalizeHorizontalFoldingNavboxes(root);
   normalizeSquareImageGrids(root);
   normalizeCompactLinkGrids(root);
   setupAnimatedFolding(root);
+}
+
+function normalizeThemeImageVariants(root) {
+  const images = [...root.querySelectorAll("img[alt]")];
+  for (const image of images) {
+    const baseAlt = themeVariantBaseAlt(image.getAttribute("alt"));
+    if (!baseAlt) continue;
+
+    const variantRoot = findThemeVariantRoot(image, root);
+    if (!variantRoot) continue;
+
+    const siblings = [...variantRoot.parentElement?.children || []].filter(
+      (child) => child !== variantRoot
+    );
+    const hasBaseVariant = siblings.some((sibling) =>
+      [...sibling.querySelectorAll("img[alt]")].some(
+        (siblingImage) => normalizedAlt(siblingImage.getAttribute("alt")) === baseAlt
+      )
+    );
+    if (hasBaseVariant) {
+      variantRoot.classList.add("wiki-theme-image-hidden");
+    }
+  }
+}
+
+function findThemeVariantRoot(image, root) {
+  let node = image.parentElement;
+  let variantRoot = null;
+  while (node && node !== root && node.parentElement) {
+    const hasImageSibling = [...node.parentElement.children].some(
+      (sibling) => sibling !== node && sibling.querySelector?.("img[alt]")
+    );
+    if (hasImageSibling) variantRoot = node;
+    node = node.parentElement;
+  }
+  return variantRoot;
+}
+
+function themeVariantBaseAlt(value) {
+  const alt = normalizedAlt(value);
+  const baseAlt = alt
+    .replace(/\s*(?:[\[(])?\s*(?:화이트|white)\s*(?:[\])])?\s*$/i, "")
+    .trim();
+  return baseAlt && baseAlt !== alt ? baseAlt : "";
+}
+
+function normalizedAlt(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
 function normalizeCategoryBoxes(root) {
