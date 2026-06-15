@@ -2366,17 +2366,27 @@ async function shareRecordToTwitter(record, options = {}) {
   }
 
   try {
-    const blob = await createShareImageBlob(normalizedRecord);
     const shareText = shareTextForRecord(normalizedRecord);
     const shareUrl = shareUrlForRecord(normalizedRecord);
 
     if (canCopyImageToClipboard()) {
-      await copyImageToClipboard(blob);
-      openTwitterIntent(shareText, shareUrl);
-      setShareStatus(statusElement, "이미지를 클립보드에 복사했습니다. X 작성창에 붙여넣어 주세요.");
-      return;
+      const blobPromise = createShareImageBlob(normalizedRecord);
+      try {
+        await copyImageToClipboard(blobPromise);
+        openTwitterIntent(shareText, shareUrl);
+        setShareStatus(statusElement, "이미지를 클립보드에 복사했습니다. X 작성창에 붙여넣어 주세요.");
+        return;
+      } catch (clipboardError) {
+        console.warn("공유 이미지를 클립보드에 복사하지 못했습니다.", clipboardError);
+        const blob = await blobPromise;
+        downloadBlob(blob, shareImageFilename(normalizedRecord));
+        openTwitterIntent(shareText, shareUrl);
+        setShareStatus(statusElement, "클립보드 복사는 안 됐지만 이미지를 다운로드하고 X 작성창을 열었습니다.");
+        return;
+      }
     }
 
+    const blob = await createShareImageBlob(normalizedRecord);
     downloadBlob(blob, shareImageFilename(normalizedRecord));
     openTwitterIntent(shareText, shareUrl);
     setShareStatus(statusElement, "이미지를 다운로드하고 X 작성창을 열었습니다.");
@@ -2442,12 +2452,29 @@ function canCopyImageToClipboard() {
   return Boolean(window.ClipboardItem && navigator.clipboard?.write);
 }
 
-async function copyImageToClipboard(blob) {
+async function copyImageToClipboard(blobOrPromise) {
+  const mimeType = "image/png";
+  if (shouldUseDeferredClipboardBlob()) {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        [mimeType]: blobOrPromise
+      })
+    ]);
+    return;
+  }
+
+  const blob = await blobOrPromise;
   await navigator.clipboard.write([
     new ClipboardItem({
       [blob.type]: blob
     })
   ]);
+}
+
+function shouldUseDeferredClipboardBlob() {
+  const userAgent = navigator.userAgent || "";
+  return /\bAppleWebKit\//.test(userAgent)
+    && !/\b(?:Chrome|Chromium|Edg|OPR|SamsungBrowser)\//.test(userAgent);
 }
 
 function downloadBlob(blob, filename) {
