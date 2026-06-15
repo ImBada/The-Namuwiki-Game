@@ -106,3 +106,16 @@ test("horizontal folding navboxes override inline display while closed", async (
     /\.wiki-horizontal-folding-navbox:not\(:has\(\.wiki-horizontal-folding-details\[open\]\)\) > \.wiki-horizontal-folding-tab\s*\{[^}]*display:\s*contents !important;/s
   );
 });
+
+test("article tables preserve template colors without generated class targeting", async () => {
+  const script = await readFile(join(process.cwd(), "public", "wiki-dom.js"), "utf8");
+  const styles = await readFile(join(process.cwd(), "public", "styles.css"), "utf8");
+
+  assert.match(script, /normalizeTemplateColorTables/);
+  assert.match(script, /wiki-template-color-table/);
+  assert.match(script, /normalizeStyledTableLinks/);
+  assert.match(script, /wiki-link-inherit-color/);
+  assert.match(styles, /\.wiki-article \.wiki-template-color-table\s*\{[^}]*--wiki-template-accent-color/s);
+  assert.match(styles, /\.wiki-article \.wiki-link-inherit-color\s*\{[^}]*color:\s*inherit/s);
+  assert.doesNotMatch(styles, /B5k1WAY7|_1V23dKpT|Yoa6Atir|tgHq0blS|XqAsY45J/);
+});

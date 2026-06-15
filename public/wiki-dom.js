@@ -1,5 +1,7 @@
 export function normalizeWikiArticleDom(root) {
   normalizeCategoryBoxes(root);
+  normalizeTemplateColorTables(root);
+  normalizeStyledTableLinks(root);
   normalizeThemeImageVariants(root);
   foldLeadingUtilityContent(root);
   foldDefaultCollapsedBrowseSection(root);
@@ -7,6 +9,146 @@ export function normalizeWikiArticleDom(root) {
   normalizeSquareImageGrids(root);
   normalizeCompactLinkGrids(root);
   setupAnimatedFolding(root);
+}
+
+function normalizeTemplateColorTables(root) {
+  const view = root.ownerDocument?.defaultView;
+  if (!view) return;
+
+  for (const table of root.querySelectorAll("table")) {
+    if (!(table instanceof view.HTMLTableElement)) continue;
+
+    const accentColor = tableBorderAccentColor(table, view);
+    const firstCell = firstTableCell(table);
+    if (
+      !accentColor ||
+      !firstCell ||
+      !shouldUseTableAccentBackground(firstCell, accentColor, view)
+    ) {
+      continue;
+    }
+
+    table.classList.add("wiki-template-color-table");
+    table.style.setProperty("--wiki-template-accent-color", accentColor);
+  }
+}
+
+function firstTableCell(table) {
+  return (
+    table.tHead?.rows?.[0]?.cells?.[0] ||
+    table.tBodies?.[0]?.rows?.[0]?.cells?.[0] ||
+    table.rows?.[0]?.cells?.[0]
+  );
+}
+
+function tableBorderAccentColor(table, view) {
+  const style = view.getComputedStyle(table);
+  const sides = ["Top", "Right", "Bottom", "Left"];
+
+  for (const side of sides) {
+    const width = Number.parseFloat(style[`border${side}Width`]);
+    const borderStyle = style[`border${side}Style`];
+    const color = style[`border${side}Color`];
+    if (
+      width > 0 &&
+      borderStyle !== "none" &&
+      borderStyle !== "hidden" &&
+      isVisibleCssColor(color)
+    ) {
+      return color;
+    }
+  }
+
+  return "";
+}
+
+function shouldUseTableAccentBackground(cell, accentColor, view) {
+  const style = view.getComputedStyle(cell);
+  return (
+    isTransparentCssColor(style.backgroundColor) &&
+    isLightCssColor(style.color) &&
+    hasReadableContrast(style.color, accentColor)
+  );
+}
+
+function normalizeStyledTableLinks(root) {
+  const view = root.ownerDocument?.defaultView;
+  if (!view) return;
+
+  for (const link of root.querySelectorAll(
+    "table :is(a.game-wiki-link, .wiki-link-disabled:not(.wiki-link-external-disabled))"
+  )) {
+    if (!(link instanceof view.HTMLElement) || link.style.color) continue;
+    if (!closestInlineTextColor(link, root, view)) continue;
+
+    link.classList.add("wiki-link-inherit-color");
+  }
+}
+
+function closestInlineTextColor(element, root, view) {
+  let node = element.parentElement;
+  while (node && node !== root) {
+    if (node instanceof view.HTMLElement && node.style.color) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function isVisibleCssColor(value) {
+  const color = parseCssRgbColor(value);
+  return Boolean(color && color.alpha > 0);
+}
+
+function isTransparentCssColor(value) {
+  if (String(value || "").trim().toLowerCase() === "transparent") return true;
+  const color = parseCssRgbColor(value);
+  return Boolean(color && color.alpha === 0);
+}
+
+function isLightCssColor(value) {
+  const color = parseCssRgbColor(value);
+  return Boolean(color && color.alpha > 0 && relativeLuminance(color) > 0.78);
+}
+
+function hasReadableContrast(textColor, backgroundColor) {
+  const text = parseCssRgbColor(textColor);
+  const background = parseCssRgbColor(backgroundColor);
+  if (!text || !background || text.alpha === 0 || background.alpha === 0) return false;
+
+  const light = Math.max(relativeLuminance(text), relativeLuminance(background));
+  const dark = Math.min(relativeLuminance(text), relativeLuminance(background));
+  return (light + 0.05) / (dark + 0.05) >= 1.6;
+}
+
+function parseCssRgbColor(value) {
+  const match = String(value || "").match(
+    /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i
+  );
+  if (!match) return null;
+
+  return {
+    red: clampColorChannel(Number.parseFloat(match[1])),
+    green: clampColorChannel(Number.parseFloat(match[2])),
+    blue: clampColorChannel(Number.parseFloat(match[3])),
+    alpha: match[4] === undefined ? 1 : Math.max(0, Math.min(1, Number.parseFloat(match[4])))
+  };
+}
+
+function clampColorChannel(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(255, value));
+}
+
+function relativeLuminance(color) {
+  const red = linearRgb(color.red);
+  const green = linearRgb(color.green);
+  const blue = linearRgb(color.blue);
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function linearRgb(channel) {
+  const value = channel / 255;
+  return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
 }
 
 function normalizeThemeImageVariants(root) {

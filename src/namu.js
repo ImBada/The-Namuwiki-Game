@@ -371,12 +371,15 @@ export function sanitizeArticleHtml(html, currentTitle = "") {
       const textTitle = escapeAttribute(title);
       const attrs = `${before} ${after}`.replace(/\sclass=("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
       if (!isPlayableArticleTitle(title, currentTitle)) {
-        return `<span class="wiki-link-disabled" data-disabled-title="${textTitle}">`;
+        return `<span${attrs} class="wiki-link-disabled" data-disabled-title="${textTitle}">`;
       }
       return `<a${attrs} href="#" data-game-title="${textTitle}" class="game-wiki-link">`;
     })
     .replace(/<\/a>/gi, "</a>")
-    .replace(/<span class="wiki-link-disabled"([^>]*)>([\s\S]*?)<\/a>/gi, "<span class=\"wiki-link-disabled\"$1>$2</span>")
+    .replace(
+      /(<span\b(?=[^>]*\bclass=(["'])[^"']*\bwiki-link-disabled\b[^"']*\2)[^>]*>)([\s\S]*?)<\/a>/gi,
+      "$1$3</span>"
+    )
     .replace(/<a\b([^>]*?)href\s*=\s*(["'])(?!#)([^"']+)\2([^>]*)>([\s\S]*?)<\/a>/gi, (match, before, quote, href, after, content) => {
       return `<span class="wiki-link-disabled wiki-link-external-disabled" data-disabled-href="${escapeAttribute(href)}">${content}</span>`;
     })

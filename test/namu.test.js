@@ -219,6 +219,15 @@ test("keeps safe template layout styles while constraining display and backgroun
   assert.doesNotMatch(html, /display:none|url\(|javascript|example\.com/i);
 });
 
+test("preserves safe styles when current article links become disabled spans", () => {
+  const html = sanitizeArticleHtml(`
+    <a href="/w/%ED%98%84%EC%9E%AC" style="color:#fff; background:url(javascript:alert(1))">현재</a>
+  `, "현재");
+
+  assert.match(html, /<span style="color:#fff" class="wiki-link-disabled" data-disabled-title="현재">현재<\/span>/);
+  assert.doesNotMatch(html, /url\(|javascript/i);
+});
+
 test("allows only safe article style properties", () => {
   const html = sanitizeArticleHtml(`
     <div style="position: fixed; z-index: 9999; inset: 0; top: 0; left: 0; pointer-events: auto; transform: translateX(1px); margin-top: -10000px; margin-left: calc(0px - 10000px); width: 80%; max-width: 640px; min-height: 100vh; height: 100v\\68; width: 100v\\77; color: #123456; background-color: rgb(255, 255, 255); text-align: center; vertical-align: top; border: 1px solid #ccc; border-collapse: collapse">안전 스타일</div>

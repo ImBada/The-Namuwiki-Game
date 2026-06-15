@@ -1901,6 +1901,23 @@ body.is-loading .game-wiki-link {
   color: #6f7976;
 }
 
+.wiki-article .wiki-link-inherit-color {
+  color: inherit;
+}
+
+.wiki-article .wiki-link-inherit-color.game-wiki-link {
+  border-bottom-color: currentColor;
+}
+
+.wiki-article .wiki-link-inherit-color.game-wiki-link:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  border-bottom-color: currentColor;
+}
+
+.wiki-article .wiki-link-inherit-color.game-wiki-link.is-visited {
+  color: inherit;
+}
+
 .wiki-article .wiki-link-external-disabled {
   border-bottom: 1px dotted rgba(111, 121, 118, 0.45);
   color: #6f7976;
@@ -2106,9 +2123,13 @@ body.is-loading .game-wiki-link {
   width: auto;
   max-width: 100%;
   border-collapse: collapse;
-  background: #f5f5f5;
+  background: transparent;
   font-size: 14px;
   table-layout: auto;
+}
+
+.wiki-article .wiki-template-color-table {
+  background: var(--wiki-template-accent-color, transparent);
 }
 
 .wiki-article .wiki-table-wrap,
