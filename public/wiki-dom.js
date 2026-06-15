@@ -19,26 +19,30 @@ function normalizeTemplateColorTables(root) {
     if (!(table instanceof view.HTMLTableElement)) continue;
 
     const accentColor = tableBorderAccentColor(table, view);
-    const firstCell = firstTableCell(table);
-    if (
-      !accentColor ||
-      !firstCell ||
-      !shouldUseTableAccentBackground(firstCell, accentColor, view)
-    ) {
-      continue;
-    }
+    if (!accentColor) continue;
 
+    const accentCells = templateAccentCells(table, accentColor, view);
+    if (accentCells.length === 0) continue;
+
+    for (const cell of accentCells) {
+      cell.classList.add("wiki-template-color-cell");
+    }
     table.classList.add("wiki-template-color-table");
     table.style.setProperty("--wiki-template-accent-color", accentColor);
   }
 }
 
-function firstTableCell(table) {
-  return (
-    table.tHead?.rows?.[0]?.cells?.[0] ||
-    table.tBodies?.[0]?.rows?.[0]?.cells?.[0] ||
-    table.rows?.[0]?.cells?.[0]
+function templateAccentCells(table, accentColor, view) {
+  const row = firstTableRow(table);
+  if (!row) return [];
+
+  return [...row.cells].filter((cell) =>
+    shouldUseTableAccentBackground(cell, accentColor, view)
   );
+}
+
+function firstTableRow(table) {
+  return table.tHead?.rows?.[0] || table.tBodies?.[0]?.rows?.[0] || table.rows?.[0];
 }
 
 function tableBorderAccentColor(table, view) {

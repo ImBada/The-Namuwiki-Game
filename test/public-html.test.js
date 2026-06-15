@@ -113,9 +113,14 @@ test("article tables preserve template colors without generated class targeting"
 
   assert.match(script, /normalizeTemplateColorTables/);
   assert.match(script, /wiki-template-color-table/);
+  assert.match(script, /wiki-template-color-cell/);
   assert.match(script, /normalizeStyledTableLinks/);
   assert.match(script, /wiki-link-inherit-color/);
   assert.match(styles, /\.wiki-article \.wiki-template-color-table\s*\{[^}]*--wiki-template-accent-color/s);
+  assert.match(
+    styles,
+    /\.wiki-article \.wiki-template-color-cell\s*\{[^}]*--wiki-template-accent-color[^}]*!important/s
+  );
   assert.match(styles, /\.wiki-article \.wiki-link-inherit-color\s*\{[^}]*color:\s*inherit/s);
   assert.doesNotMatch(styles, /B5k1WAY7|_1V23dKpT|Yoa6Atir|tgHq0blS|XqAsY45J/);
 });

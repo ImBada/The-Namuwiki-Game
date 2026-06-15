@@ -2132,6 +2132,10 @@ body.is-loading .game-wiki-link {
   background: var(--wiki-template-accent-color, transparent);
 }
 
+.wiki-article .wiki-template-color-cell {
+  background-color: var(--wiki-template-accent-color, transparent) !important;
+}
+
 .wiki-article .wiki-table-wrap,
 .wiki-article .fLK1WVog {
   display: block;
