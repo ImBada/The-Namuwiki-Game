@@ -51,8 +51,9 @@ Environment variables:
   upstream request is rejected with 403.
 
 Railway containers do not keep normal app filesystem writes across redeploys.
-Daily challenge rounds are stored in `daily-rounds.json`, leaderboard data is
-stored in `daily-scores.json`, and fetched NamuWiki documents are cached as
+Daily challenge rounds are stored in `daily-rounds.json`, current leaderboard
+data is stored in `daily-scores.json`, previous daily leaderboards are archived
+under `daily-score-archives/`, and fetched NamuWiki documents are cached as
 Brotli-compressed files in `document-cache/`, so attach a Railway Volume and
 point the app's data directory at the volume mount path:
 

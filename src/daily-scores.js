@@ -11,6 +11,7 @@ const DATA_DIR = resolve(
   join(process.cwd(), ".data")
 );
 const DAILY_SCORES_FILE = join(DATA_DIR, "daily-scores.json");
+const DAILY_SCORE_ARCHIVE_DIR = join(DATA_DIR, "daily-score-archives");
 const USED_ROUND_TOKEN_HASHES_KEY = "_usedRoundTokenHashes";
 const DAILY_SCORE_LIMIT = 100;
 const ROUND_SECRET = getRoundSecret();
@@ -19,7 +20,7 @@ let dailyScoreWriteQueue = Promise.resolve();
 
 export async function getDailyLeaderboard() {
   const dateKey = todayDateKey();
-  const store = await readDailyScoreStore();
+  const store = await resetDailyScoreStoreForDate(dateKey);
   const scores = sortScores(normalizeDailyScores(scoreStoreDateEntry(store, dateKey)));
   return {
     dateKey,
@@ -58,6 +59,7 @@ export async function submitDailyScore(body, options = {}) {
 
   const result = await queueDailyScoreWrite(async () => {
     const store = await readDailyScoreStore();
+    await archiveStaleDailyScores(store, dateKey);
     const existingScores = normalizeDailyScores(scoreStoreDateEntry(store, dateKey));
     const usedRoundTokenHashes = collectUsedRoundTokenHashes(store, dateKey, existingScores);
     if (roundTokenHashes.some((hash) => usedRoundTokenHashes.has(hash))) {
@@ -93,6 +95,18 @@ export async function submitDailyScore(body, options = {}) {
 function queueDailyScoreWrite(task) {
   dailyScoreWriteQueue = dailyScoreWriteQueue.then(task, task);
   return dailyScoreWriteQueue;
+}
+
+function resetDailyScoreStoreForDate(dateKey) {
+  return queueDailyScoreWrite(async () => {
+    const store = await readDailyScoreStore();
+    if (!hasStaleDailyScoreEntries(store, dateKey)) return store;
+
+    await archiveStaleDailyScores(store, dateKey);
+    const todayOnlyStore = dailyScoreStoreForDate(store, dateKey);
+    await writeDailyScoreStore(todayOnlyStore);
+    return todayOnlyStore;
+  });
 }
 
 function assertSubmittedRoundMetrics(body, completedRound) {
@@ -151,6 +165,61 @@ async function readDailyScoreStore() {
 async function writeDailyScoreStore(store) {
   await mkdir(DATA_DIR, { recursive: true });
   await writeFile(DAILY_SCORES_FILE, `${JSON.stringify(store, null, 2)}\n`);
+}
+
+async function archiveStaleDailyScores(store, activeDateKey) {
+  const staleDateKeys = dailyScoreStoreDateKeys(store)
+    .filter((dateKey) => dateKey !== activeDateKey);
+  if (staleDateKeys.length === 0) return;
+
+  await mkdir(DAILY_SCORE_ARCHIVE_DIR, { recursive: true });
+  for (const dateKey of staleDateKeys) {
+    const archivedStore = dailyScoreStoreForDate(store, dateKey);
+    if (Object.keys(archivedStore).length === 0) continue;
+
+    const archive = {
+      dateKey,
+      archivedAt: new Date().toISOString(),
+      scores: normalizeDailyScores(scoreStoreDateEntry(archivedStore, dateKey)),
+      usedRoundTokenHashes: archivedStore[USED_ROUND_TOKEN_HASHES_KEY]?.[dateKey] || []
+    };
+    await writeDailyScoreArchive(dateKey, archive);
+  }
+}
+
+async function writeDailyScoreArchive(dateKey, archive) {
+  const archiveFile = join(DAILY_SCORE_ARCHIVE_DIR, `${dateKey}.json`);
+  try {
+    await writeFile(archiveFile, `${JSON.stringify(archive, null, 2)}\n`, { flag: "wx" });
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+  }
+}
+
+function hasStaleDailyScoreEntries(store, activeDateKey) {
+  return dailyScoreStoreDateKeys(store).some((dateKey) => dateKey !== activeDateKey);
+}
+
+function dailyScoreStoreForDate(store, dateKey) {
+  const scores = normalizeDailyScores(scoreStoreDateEntry(store, dateKey));
+  const usedRoundTokenHashes = collectUsedRoundTokenHashes(store, dateKey, scores);
+  const nextStore = {};
+  if (scores.length > 0) {
+    nextStore[dateKey] = sortScores(scores).slice(0, DAILY_SCORE_LIMIT);
+  }
+  if (usedRoundTokenHashes.size > 0) {
+    nextStore[USED_ROUND_TOKEN_HASHES_KEY] = {
+      [dateKey]: [...usedRoundTokenHashes]
+    };
+  }
+  return nextStore;
+}
+
+function dailyScoreStoreDateKeys(store) {
+  if (!store || typeof store !== "object" || Array.isArray(store)) return [];
+  return Object.keys(store)
+    .map(normalizeDailyDateKey)
+    .filter(Boolean);
 }
 
 function normalizeDailyScores(scores) {

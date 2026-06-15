@@ -109,6 +109,53 @@ test("returns the submitted daily score rank", async () => {
   assert.equal(Object.hasOwn(submitted.score, "roundTokenHash"), false);
 });
 
+test("archives stale daily scores before resetting for a new day", async () => {
+  const { getDailyLeaderboard } = await importDailyScores("archive-stale-scores");
+  const staleDateKey = "2000-01-01";
+  const staleScore = {
+    id: "stale-score",
+    dateKey: staleDateKey,
+    nickname: "어제 사람",
+    clickCount: 2,
+    elapsedSeconds: 15,
+    pathLength: 3,
+    path: ["시작", "중간", "목표"],
+    completedAt: "2000-01-01T12:00:00.000Z",
+    roundTokenHash: createHmac("sha256", ROUND_SECRET)
+      .update("stale-round")
+      .digest("base64url")
+  };
+
+  await writeFile(
+    join(process.env.DATA_DIR, "daily-scores.json"),
+    `${JSON.stringify({
+      [staleDateKey]: [staleScore],
+      _usedRoundTokenHashes: {
+        [staleDateKey]: [staleScore.roundTokenHash]
+      }
+    }, null, 2)}\n`
+  );
+
+  const leaderboard = await getDailyLeaderboard();
+  const activeStore = JSON.parse(
+    await readFile(join(process.env.DATA_DIR, "daily-scores.json"), "utf8")
+  );
+  const archive = JSON.parse(
+    await readFile(
+      join(process.env.DATA_DIR, "daily-score-archives", `${staleDateKey}.json`),
+      "utf8"
+    )
+  );
+
+  assert.equal(leaderboard.dateKey, todayDateKey());
+  assert.deepEqual(leaderboard.scores, []);
+  assert.deepEqual(activeStore, {});
+  assert.equal(archive.dateKey, staleDateKey);
+  assert.equal(archive.scores[0].nickname, "어제 사람");
+  assert.deepEqual(archive.scores[0].path, ["시작", "중간", "목표"]);
+  assert.deepEqual(archive.usedRoundTokenHashes, [staleScore.roundTokenHash]);
+});
+
 test("ranks the same-click first completion first, then the rest by elapsed time", async () => {
   const { submitDailyScore } = await importDailyScores("same-click-first-completion");
   const now = Date.now();
