@@ -207,12 +207,14 @@ script:alert(1); behavior:url(#x); -moz-binding:url(x)">스타일</span>
 test("keeps safe template layout styles while constraining display and backgrounds", () => {
   const html = sanitizeArticleHtml(`
     <div style="display:flex; background:#42b4e6; color:#fff">상단 틀</div>
+    <div style="background:radial-gradient(circle, #FE0000 39.9%, #FFF 40.1%); color:#fff">그라데이션 틀</div>
     <div style="display:inline-table; background:transparent; width:16.29%">멤버</div>
     <div style="display:inline-block; background-image:linear-gradient(to bottom, transparent 45%, #fff 45%, #fff 55%, transparent 55%)">구분선</div>
     <div style="display:none; background:url(javascript:alert(1)); background-image:url(https://example.com/x.png)">위험</div>
   `);
 
   assert.match(html, /style="display:flex; background:#42b4e6; color:#fff"/);
+  assert.match(html, /style="background:radial-gradient\(circle, #FE0000 39.9%, #FFF 40.1%\); color:#fff"/);
   assert.match(html, /style="display:inline-table; background:transparent; width:16.29%"/);
   assert.match(html, /style="display:inline-block; background-image:linear-gradient\(to bottom, transparent 45%, #fff 45%, #fff 55%, transparent 55%\)"/);
   assert.match(html, /<div>위험<\/div>/);

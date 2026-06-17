@@ -697,6 +697,7 @@ function isSafeBackgroundCssValue(value) {
   const normalized = normalizeCssValue(value);
   return (
     isSafeCssColorValue(normalized) ||
+    isSafeCssGradientValue(normalized) ||
     ["none", "transparent", "currentcolor", "inherit", "initial", "unset"].includes(normalized)
   );
 }
@@ -704,7 +705,11 @@ function isSafeBackgroundCssValue(value) {
 function isSafeBackgroundImageCssValue(value) {
   const normalized = normalizeCssValue(value);
   if (normalized === "none") return true;
-  return /^(?:repeating-)?(?:linear|radial)-gradient\([\s\S]+\)$/.test(normalized);
+  return isSafeCssGradientValue(normalized);
+}
+
+function isSafeCssGradientValue(value) {
+  return /^(?:repeating-)?(?:linear|radial)-gradient\([\s\S]+\)$/.test(value);
 }
 
 function isSafeCssColorValue(value) {
