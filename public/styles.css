@@ -3123,14 +3123,24 @@ body.is-loading .game-wiki-link {
 
 .multiplayer-dock-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   border-top: 1px solid rgba(120, 255, 226, 0.16);
   padding: 10px;
 }
 
-.dock-chat-log {
+.chat-log.dock-chat-log {
+  grid-area: auto;
+  width: 100%;
   min-height: 170px;
   max-height: min(320px, 38vh);
+}
+
+.chat-form.dock-chat-form {
+  grid-area: auto;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  width: 100%;
+  min-width: 0;
 }
 
 .dock-chat-form input {
@@ -3142,6 +3152,10 @@ body.is-loading .game-wiki-link {
   padding: 0 12px;
   color: #f8fff9;
   font-weight: 750;
+}
+
+.dock-chat-form .secondary-button {
+  padding: 0 12px;
 }
 
 .game-mode-options {

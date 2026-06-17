@@ -91,6 +91,17 @@ test("multiplayer lobby keeps chat history scrollable inside the dialog", async 
   assert.match(styles, /\.chat-log\s*\{[^}]*overscroll-behavior:\s*contain;/s);
 });
 
+test("multiplayer dock keeps in-game chat form in one column flow", async () => {
+  const html = await readFile(join(process.cwd(), "public", "index.html"), "utf8");
+  const styles = await readFile(join(process.cwd(), "public", "styles.css"), "utf8");
+
+  assert.match(html, /id="dockChatLog" class="chat-log dock-chat-log"/);
+  assert.match(html, /id="dockChatForm" class="chat-form dock-chat-form"/);
+  assert.match(styles, /\.multiplayer-dock-body\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s);
+  assert.match(styles, /\.chat-log\.dock-chat-log\s*\{[^}]*grid-area:\s*auto;/s);
+  assert.match(styles, /\.chat-form\.dock-chat-form\s*\{[^}]*grid-area:\s*auto;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*76px;/s);
+});
+
 test("daily leaderboards show labeled score and completion columns", async () => {
   const html = await readFile(join(process.cwd(), "public", "index.html"), "utf8");
   const script = await readFile(join(process.cwd(), "public", "app.js"), "utf8");
