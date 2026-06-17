@@ -2821,6 +2821,7 @@ body.is-loading .game-wiki-link {
     "route chat"
     "actions form";
   align-items: stretch;
+  min-height: 0;
 }
 
 .join-room-row,
@@ -2989,9 +2990,10 @@ body.is-loading .game-wiki-link {
   display: grid;
   align-content: start;
   gap: 8px;
-  min-height: 100%;
-  max-height: none;
+  min-height: 0;
+  max-height: min(430px, 46vh);
   overflow: auto;
+  overscroll-behavior: contain;
   border: 1px solid rgba(120, 255, 226, 0.16);
   border-radius: var(--radius);
   background:

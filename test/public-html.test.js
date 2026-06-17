@@ -83,6 +83,14 @@ test("history screen paginates local records without a storage cap", async () =>
   assert.match(styles, /\.danger-button/);
 });
 
+test("multiplayer lobby keeps chat history scrollable inside the dialog", async () => {
+  const styles = await readFile(join(process.cwd(), "public", "styles.css"), "utf8");
+
+  assert.match(styles, /\.multiplayer-lobby\s*\{[^}]*min-height:\s*0;/s);
+  assert.match(styles, /\.chat-log\s*\{[^}]*min-height:\s*0;[^}]*max-height:\s*min\(430px,\s*46vh\);/s);
+  assert.match(styles, /\.chat-log\s*\{[^}]*overscroll-behavior:\s*contain;/s);
+});
+
 test("daily leaderboards show labeled score and completion columns", async () => {
   const html = await readFile(join(process.cwd(), "public", "index.html"), "utf8");
   const script = await readFile(join(process.cwd(), "public", "app.js"), "utf8");
